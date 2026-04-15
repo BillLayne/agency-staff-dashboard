@@ -1,0 +1,80 @@
+import React, { useCallback, useState } from 'react';
+import ProgramLauncher from './components/ProgramLauncher';
+import Toast from './components/Toast';
+import type { ToastMessage } from './types';
+
+export default function App() {
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = useCallback((message: string, type: ToastMessage['type'] = 'success') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 3000);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#f3f7fb] text-slate-900">
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(circle_at_top,rgba(0,118,211,0.14),transparent_58%)]"></div>
+        <div className="absolute -left-24 top-32 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl"></div>
+        <div className="absolute right-0 top-24 h-96 w-96 rounded-full bg-blue-700/10 blur-3xl"></div>
+      </div>
+
+      <div className="relative z-10">
+        <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/75 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.1rem] bg-gradient-to-br from-slate-950 via-[#003f87] to-[#0076d3] text-white shadow-xl shadow-blue-900/20">
+              <i className="fa-solid fa-briefcase text-base"></i>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-black uppercase tracking-[0.35em] text-[#0076d3]">
+                Bill Layne Insurance
+              </p>
+              <h1 className="truncate font-outfit text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
+                Agency Staff Dashboard
+              </h1>
+              <p className="hidden text-sm text-slate-500 sm:block">
+                Staff-only launcher for operations, documents, forms, and property coverage tools.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-7xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
+          <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_24px_60px_-38px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.35em] text-[#0076d3]">
+                  Staff Tool Wall
+                </p>
+                <h2 className="mt-1 font-outfit text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+                  Open the programs you use every day
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+                  This separate dashboard keeps only the launcher sections staff needs: Operations,
+                  Documents & Forms, and Property & Coverage. It does not include unified search,
+                  Gmail engineering, or image upload tools.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Simple launcher only
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <ProgramLauncher addToast={addToast} />
+          </section>
+        </main>
+
+        <div className="fixed bottom-6 right-6 z-[110] flex flex-col gap-3">
+          {toasts.map((toast) => (
+            <Toast key={toast.id} message={toast.message} type={toast.type} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
