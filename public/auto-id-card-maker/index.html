@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto ID Card Maker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="page-shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Bill Layne Insurance</p>
+        <h1>Standalone Auto ID Card Maker</h1>
+        <p class="hero-text">
+          This is the dedicated version of the old document generator’s
+          <strong>Auto ID Card Maker</strong>, pulled out into its own solo tool.
+        </p>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card-label">Document</div>
+        <div class="hero-card-title">ID Cards</div>
+        <div class="hero-card-copy">Generate 1 to 4 printable North Carolina insurance cards.</div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="panel form-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Card Details</h2>
+            <p>Enter the company, drivers, policy, and vehicle information for the card sheet.</p>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn btn-success" id="saveButton">Save Form Data</button>
+            <button type="button" class="btn btn-secondary" id="loadButton">Load Saved Data</button>
+            <button type="button" class="btn btn-danger" id="clearButton">Clear Form</button>
+          </div>
+        </div>
+
+        <form id="autoIdCardForm" novalidate>
+          <div class="section">
+            <h3>Policy Setup</h3>
+            <div class="grid two-up">
+              <label class="field">
+                <span>Insurance Company</span>
+                <select id="idCardCompany" required>
+                  <option value="">Select Company</option>
+                  <option value="Nationwide">Nationwide</option>
+                  <option value="Progressive">Progressive</option>
+                  <option value="National General">National General</option>
+                  <option value="Travelers">Travelers</option>
+                  <option value="NC Grange Mutual">NC Grange Mutual</option>
+                  <option value="Alamance">Alamance</option>
+                  <option value="Universal Property">Universal Property</option>
+                  <option value="Dairyland">Dairyland</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Number of Vehicles</span>
+                <select id="idCardVehicleCount">
+                  <option value="1">1 Vehicle</option>
+                  <option value="2">2 Vehicles</option>
+                  <option value="3">3 Vehicles</option>
+                  <option value="4">4 Vehicles</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Number of Copies</span>
+                <select id="idCardCopyCount">
+                  <option value="1">1 Copy</option>
+                  <option value="2">2 Copies</option>
+                  <option value="3">3 Copies</option>
+                  <option value="4">4 Copies</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Policy Number</span>
+                <input type="text" id="idCardPolicyNumber" required>
+              </label>
+              <label class="field">
+                <span>NAIC #</span>
+                <input type="text" id="idCardNAIC" readonly>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Effective Date</span>
+                <input type="date" id="idCardEffectiveDate" required>
+              </label>
+              <label class="field">
+                <span>Expiration Date</span>
+                <input type="date" id="idCardExpirationDate" required>
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Driver Names</h3>
+            <div class="grid two-up">
+              <label class="field">
+                <span>Primary Driver Name</span>
+                <input type="text" id="idCardDriverName" required>
+              </label>
+              <label class="field">
+                <span>Additional Drivers</span>
+                <textarea id="idCardAdditionalDrivers" rows="4" placeholder="One driver per line"></textarea>
+                <small class="field-help">Use one line per child or additional listed driver.</small>
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Vehicles</h3>
+            <div class="vehicle-stack">
+              <div class="vehicle-card" id="vehicle1Section">
+                <div class="vehicle-title">Vehicle 1</div>
+                <div class="grid three-up">
+                  <label class="field">
+                    <span>Year</span>
+                    <input type="text" id="vehicle1Year" placeholder="2024">
+                  </label>
+                  <label class="field">
+                    <span>Make</span>
+                    <input type="text" id="vehicle1Make" placeholder="Honda">
+                  </label>
+                  <label class="field">
+                    <span>Model</span>
+                    <input type="text" id="vehicle1Model" placeholder="Accord">
+                  </label>
+                </div>
+                <div class="grid one-up">
+                  <label class="field">
+                    <span>VIN</span>
+                    <input type="text" id="vehicle1VIN" placeholder="Vehicle Identification Number">
+                  </label>
+                </div>
+              </div>
+
+              <div class="vehicle-card" id="vehicle2Section" hidden>
+                <div class="vehicle-title">Vehicle 2</div>
+                <div class="grid three-up">
+                  <label class="field">
+                    <span>Year</span>
+                    <input type="text" id="vehicle2Year" placeholder="2024">
+                  </label>
+                  <label class="field">
+                    <span>Make</span>
+                    <input type="text" id="vehicle2Make" placeholder="Toyota">
+                  </label>
+                  <label class="field">
+                    <span>Model</span>
+                    <input type="text" id="vehicle2Model" placeholder="Camry">
+                  </label>
+                </div>
+                <div class="grid one-up">
+                  <label class="field">
+                    <span>VIN</span>
+                    <input type="text" id="vehicle2VIN" placeholder="Vehicle Identification Number">
+                  </label>
+                </div>
+              </div>
+
+              <div class="vehicle-card" id="vehicle3Section" hidden>
+                <div class="vehicle-title">Vehicle 3</div>
+                <div class="grid three-up">
+                  <label class="field">
+                    <span>Year</span>
+                    <input type="text" id="vehicle3Year" placeholder="2024">
+                  </label>
+                  <label class="field">
+                    <span>Make</span>
+                    <input type="text" id="vehicle3Make" placeholder="Ford">
+                  </label>
+                  <label class="field">
+                    <span>Model</span>
+                    <input type="text" id="vehicle3Model" placeholder="F-150">
+                  </label>
+                </div>
+                <div class="grid one-up">
+                  <label class="field">
+                    <span>VIN</span>
+                    <input type="text" id="vehicle3VIN" placeholder="Vehicle Identification Number">
+                  </label>
+                </div>
+              </div>
+
+              <div class="vehicle-card" id="vehicle4Section" hidden>
+                <div class="vehicle-title">Vehicle 4</div>
+                <div class="grid three-up">
+                  <label class="field">
+                    <span>Year</span>
+                    <input type="text" id="vehicle4Year" placeholder="2024">
+                  </label>
+                  <label class="field">
+                    <span>Make</span>
+                    <input type="text" id="vehicle4Make" placeholder="Chevrolet">
+                  </label>
+                  <label class="field">
+                    <span>Model</span>
+                    <input type="text" id="vehicle4Model" placeholder="Silverado">
+                  </label>
+                </div>
+                <div class="grid one-up">
+                  <label class="field">
+                    <span>VIN</span>
+                    <input type="text" id="vehicle4VIN" placeholder="Vehicle Identification Number">
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="primary-actions">
+            <button type="submit" class="btn btn-primary">Generate ID Cards</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel preview-panel">
+        <div class="panel-header preview-header">
+          <div>
+            <h2>Preview</h2>
+            <p>The generated card sheet appears here and stays printable.</p>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn btn-secondary" id="printButton" disabled>Print</button>
+            <button type="button" class="btn btn-secondary" id="downloadButton" disabled>Download HTML</button>
+            <button type="button" class="btn btn-secondary" id="gmailButton" disabled>Copy & Open Gmail</button>
+          </div>
+        </div>
+
+        <div class="preview-note">
+          <strong>Tip:</strong> The company selection auto-fills the NAIC number, the expiration date auto-fills one year after the effective date, and each vehicle can print in multiple fold-ready copies for cutting and laminating.
+        </div>
+
+        <div class="preview-frame-wrap">
+          <iframe id="previewFrame" title="Auto ID card preview"></iframe>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="js/scripts.js"></script>
+</body>
+</html>

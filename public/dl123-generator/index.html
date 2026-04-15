@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DL-123 Generator</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="page-shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Bill Layne Insurance</p>
+        <h1>Standalone DL-123 Generator</h1>
+        <p class="hero-text">
+          This is the dedicated version of the old Document Generator flow for creating North Carolina
+          <strong>DL-123 Driver License Liability Insurance Certifications</strong>.
+        </p>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card-label">Form</div>
+        <div class="hero-card-title">DL-123</div>
+        <div class="hero-card-copy">Valid for 30 days after certification.</div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="panel form-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Certification Details</h2>
+            <p>Fill out the policy, insured, and driver information below.</p>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn btn-success" id="saveButton">Save Form Data</button>
+            <button type="button" class="btn btn-secondary" id="loadButton">Load Saved Data</button>
+            <button type="button" class="btn btn-danger" id="clearButton">Clear Form</button>
+          </div>
+        </div>
+
+        <form id="dl123Form" novalidate>
+          <div class="section">
+            <h3>Agency & Policy</h3>
+            <div class="grid two-up">
+              <label class="field">
+                <span>Insurance Company</span>
+                <select id="insuranceCompany" required>
+                  <option value="">Select Company</option>
+                  <option value="Nationwide">Nationwide</option>
+                  <option value="Progressive">Progressive</option>
+                  <option value="National General">National General</option>
+                  <option value="Alamance">Alamance</option>
+                  <option value="Travelers">Travelers</option>
+                  <option value="NC Grange Mutual">NC Grange Mutual</option>
+                  <option value="Universal Property">Universal Property</option>
+                  <option value="Dairyland">Dairyland</option>
+                  <option value="Allstate">Allstate</option>
+                  <option value="Foremost">Foremost</option>
+                  <option value="JSA">JSA</option>
+                  <option value="NCJUA">NCJUA</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Policy Number</span>
+                <input type="text" id="policyNumber" required>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Effective Date</span>
+                <input type="date" id="effectiveDate" required>
+              </label>
+              <label class="field">
+                <span>Expiration Date</span>
+                <input type="date" id="expirationDate" required>
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Policyholder</h3>
+            <div class="grid one-up">
+              <label class="field">
+                <span>Policyholder Name</span>
+                <input type="text" id="policyholderName" required>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Address Line 1</span>
+                <input type="text" id="addressLine1" required>
+              </label>
+              <label class="field">
+                <span>Address Line 2</span>
+                <input type="text" id="addressLine2">
+              </label>
+            </div>
+
+            <div class="grid three-up">
+              <label class="field">
+                <span>City</span>
+                <input type="text" id="city" required>
+              </label>
+              <label class="field">
+                <span>State</span>
+                <input type="text" id="state" value="NC" maxlength="2" required>
+              </label>
+              <label class="field">
+                <span>ZIP Code</span>
+                <input type="text" id="zipCode" required>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Phone Number</span>
+                <input type="tel" id="phoneNumber">
+              </label>
+              <label class="field">
+                <span>Email Address</span>
+                <input type="email" id="emailAddress">
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Driver Certification</h3>
+            <div class="grid two-up">
+              <label class="field">
+                <span>Insured Driver Name</span>
+                <input type="text" id="insuredDriverName">
+              </label>
+              <label class="field">
+                <span>Date of Birth</span>
+                <input type="date" id="driverDateOfBirth" required>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Agency Code #</span>
+                <input type="text" id="agencyCode">
+              </label>
+              <label class="field">
+                <span>Agent Signature Name</span>
+                <input type="text" id="agentSignatureName" placeholder="Agent's printed name" required>
+              </label>
+            </div>
+
+            <div class="grid two-up">
+              <label class="field">
+                <span>Date of Certification</span>
+                <input type="date" id="certificationDate" required>
+              </label>
+              <label class="field">
+                <span>Agent Phone #</span>
+                <input type="text" id="agentPhone" value="1-336-835-1993">
+              </label>
+            </div>
+          </div>
+
+          <div class="primary-actions">
+            <button type="submit" class="btn btn-primary">Generate DL-123</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel preview-panel">
+        <div class="panel-header preview-header">
+          <div>
+            <h2>Preview</h2>
+            <p>The generated DL-123 opens here and stays printable.</p>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn btn-secondary" id="printButton" disabled>Print</button>
+            <button type="button" class="btn btn-secondary" id="downloadButton" disabled>Download HTML</button>
+            <button type="button" class="btn btn-secondary" id="gmailButton" disabled>Copy & Open Gmail</button>
+          </div>
+        </div>
+
+        <div class="preview-note">
+          <strong>Note:</strong> If the insured driver field is left blank, the policyholder name will be used automatically.
+        </div>
+
+        <div class="preview-frame-wrap">
+          <iframe id="previewFrame" title="DL-123 preview"></iframe>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="js/scripts.js"></script>
+</body>
+</html>
