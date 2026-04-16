@@ -10,7 +10,8 @@ const NAIC_NUMBERS = {
   'NC Grange Mutual': '14129',
   Alamance: '10190',
   'Universal Property': '10783',
-  Dairyland: '21164'
+  Dairyland: '21164',
+  Hagerty: '37915'
 };
 
 const CLAIMS_PHONE_NUMBERS = {
@@ -21,18 +22,24 @@ const CLAIMS_PHONE_NUMBERS = {
   'NC Grange Mutual': '1-800-438-4778',
   Alamance: '1-866-985-9031',
   'Universal Property': '1-888-322-2126',
-  Dairyland: '1-800-334-0090'
+  Dairyland: '1-800-334-0090',
+  Hagerty: '1-800-922-4050'
 };
 
 const COMPANY_LOGOS = {
   Nationwide: 'https://i.imgur.com/GWZBW1W.png',
   Progressive: 'https://github.com/BillLayne/bill-layne-images/blob/main/logos/Progressive%20Logo.png?raw=true',
-  'National General': 'https://i.imgur.com/nZZmaLh.png',
+  'National General': 'https://i.imgur.com/HF8oPAF.png',
   Alamance: 'https://i.imgur.com/inn1Sog.png',
   Travelers: 'https://i.imgur.com/I6ONc0K.png',
   'NC Grange Mutual': 'https://github.com/BillLayne/bill-layne-images/blob/main/logos/NC%20Grange%20Logo.png?raw=true',
   'Universal Property': 'https://i.imgur.com/otPRl9b.png',
-  Dairyland: 'https://i.imgur.com/nZZmaLh.png'
+  Dairyland: 'https://i.imgur.com/1VkIvxv.png',
+  Hagerty: 'https://i.imgur.com/0UyINHi.png'
+};
+
+const CARD_COMPANY_NAMES = {
+  Hagerty: 'Hagarty c/o Essentia Insurance'
 };
 
 const form = document.getElementById('autoIdCardForm');
@@ -160,6 +167,7 @@ function collectFormData() {
     vehicles,
     claimsPhone: CLAIMS_PHONE_NUMBERS[company] || '1-800-CLAIMS',
     companyLogoUrl: COMPANY_LOGOS[company] || '',
+    cardCompanyName: CARD_COMPANY_NAMES[company] || company,
     agentName: DEFAULT_AGENT_NAME,
     agentPhone: DEFAULT_AGENT_PHONE
   };
@@ -171,8 +179,8 @@ function generateAutoIdCardHtml(data) {
   data.vehicles.forEach((vehicle, index) => {
     for (let copyIndex = 0; copyIndex < data.copyCount; copyIndex += 1) {
       const logoMarkup = data.companyLogoUrl
-        ? `<img src="${escapeHtml(data.companyLogoUrl)}" style="height: 30px; width: auto;" alt="${escapeHtml(data.company)}">`
-        : `<div style="font-weight: bold; font-size: 12px;">${escapeHtml(data.company)}</div>`;
+        ? `<img src="${escapeHtml(data.companyLogoUrl)}" style="height: 28px; width: auto;" alt="${escapeHtml(data.cardCompanyName)}">`
+        : `<div style="font-weight: bold; font-size: 12px;">${escapeHtml(data.cardCompanyName)}</div>`;
       const allDrivers = [data.driverName, ...data.additionalDrivers].filter(Boolean);
       const insuredListClass = allDrivers.length >= 4 ? 'insured-list compact' : allDrivers.length === 3 ? 'insured-list tight' : 'insured-list';
       const insuredMarkup = allDrivers.map((driver) => `<div>${escapeHtml(driver)}</div>`).join('');
@@ -188,7 +196,10 @@ function generateAutoIdCardHtml(data) {
                 <strong style="color: #004080;">NORTH CAROLINA</strong><br>
                 <strong>AUTO INSURANCE ID CARD</strong>
               </div>
-              ${logoMarkup}
+              <div class="company-mark">
+                ${logoMarkup}
+                <div class="company-print-name">${escapeHtml(data.cardCompanyName)}</div>
+              </div>
             </div>
 
             <div class="card-info">
@@ -240,7 +251,7 @@ function generateAutoIdCardHtml(data) {
               </div>
 
               <div class="claims-block">
-                <strong class="claims-label">${escapeHtml(data.company)} 24-Hour Claims:</strong> ${escapeHtml(data.claimsPhone)}<br>
+                <strong class="claims-label">${escapeHtml(data.cardCompanyName)} 24-Hour Claims:</strong> ${escapeHtml(data.claimsPhone)}<br>
                 <strong>Agent:</strong> ${escapeHtml(data.agentName)}<br>
                 <span>${escapeHtml(data.agentPhone)}</span>
               </div>
@@ -341,6 +352,20 @@ function generateAutoIdCardHtml(data) {
       display: block;
       max-width: 110px;
       object-fit: contain;
+    }
+    .company-mark {
+      max-width: 126px;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .company-print-name {
+      font-size: 6.5px;
+      line-height: 1.05;
+      font-weight: bold;
+      color: #111827;
     }
     .card-info {
       font-size: 9px;
