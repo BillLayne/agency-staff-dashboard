@@ -191,7 +191,7 @@ const displayPath = (windowsPath: string) =>
 const groupedPrograms = CATEGORY_ORDER.map((category) => ({
   category,
   items: PROGRAMS.filter((program) => program.category === category),
-}));
+})).filter((group) => group.items.length > 0);
 
 const ProgramLauncher: React.FC<ProgramLauncherProps> = ({ addToast }) => {
   const isHostedDashboard =

@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import ProgramLauncher from './components/ProgramLauncher';
+import SearchCard from './components/SearchCard';
 import Toast from './components/Toast';
 import type { ToastMessage } from './types';
 
@@ -9,6 +10,7 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [password, setPassword] = useState('');
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [searchCount, setSearchCount] = useState(0);
 
   const addToast = useCallback((message: string, type: ToastMessage['type'] = 'success') => {
     const id = Date.now();
@@ -27,6 +29,10 @@ export default function App() {
 
     addToast('Incorrect access code.', 'danger');
   };
+
+  const handleSearch = useCallback(() => {
+    setSearchCount((current) => current + 1);
+  }, []);
 
   if (!isUnlocked) {
     return (
@@ -123,28 +129,11 @@ export default function App() {
         </header>
 
         <main className="mx-auto max-w-7xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
-          <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_24px_60px_-38px_rgba(15,23,42,0.45)] backdrop-blur-xl">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.35em] text-[#0076d3]">
-                  Staff Tool Wall
-                </p>
-                <h2 className="mt-1 font-outfit text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-                  Open the programs you use every day
-                </h2>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-                  This separate dashboard keeps only the launcher sections staff needs: Operations,
-                  Documents & Forms, and Property & Coverage. It does not include unified search,
-                  Gmail engineering, or image upload tools.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Simple launcher only
-              </div>
-            </div>
+          <section className="mb-5 sm:mb-7">
+            <SearchCard addToast={addToast} searchCount={searchCount} onSearch={handleSearch} />
           </section>
 
-          <section className="mt-5">
+          <section>
             <ProgramLauncher addToast={addToast} />
           </section>
         </main>
