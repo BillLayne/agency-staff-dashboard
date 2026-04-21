@@ -21,6 +21,17 @@ interface ProgramEntry {
 
 const PROGRAMS: ProgramEntry[] = [
   {
+    id: 'sms-command-center',
+    title: 'SMS Command Center',
+    category: 'Operations',
+    description: 'Open the staff texting hub for customer SMS, document links, images, and conversation history.',
+    target: 'https://agency-sms-command-center.bill-7e3.workers.dev/',
+    icon: 'fa-solid fa-comments',
+    accent: 'from-emerald-800 to-teal-500',
+    note: 'Staff texting hub',
+    targetType: 'web',
+  },
+  {
     id: 'send-docs',
     title: 'Send Documents',
     category: 'Documents & Forms',
