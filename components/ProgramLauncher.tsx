@@ -83,7 +83,7 @@ const PROGRAMS: ProgramEntry[] = [
     title: 'Certificates',
     category: 'Documents & Forms',
     description: 'Open the live certificate platform for COIs and certificate work.',
-    target: 'https://coi-certificates-cloudflare.pages.dev/',
+    target: 'https://382862db.coi-certificates-certguard-ai.pages.dev',
     icon: 'fa-solid fa-certificate',
     accent: 'from-teal-700 to-emerald-500',
     note: 'Live cloud app',
