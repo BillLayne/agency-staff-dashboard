@@ -114,6 +114,18 @@ const PROGRAMS: ProgramEntry[] = [
     targetType: 'web',
   },
   {
+    id: 'quote-template-studio',
+    title: 'Quote Template Studio',
+    category: 'Documents & Forms',
+    description: 'Open the live PDF-to-quote studio for building polished quote templates and proposal layouts.',
+    target: 'https://quote-template-studio.pages.dev/',
+    hostedTarget: 'https://quote-template-studio.pages.dev/',
+    icon: 'fa-solid fa-file-lines',
+    accent: 'from-blue-800 to-violet-500',
+    note: 'Live cloud app',
+    targetType: 'web',
+  },
+  {
     id: 'cancellation-form',
     title: 'Cancellation Link Generator',
     category: 'Documents & Forms',
