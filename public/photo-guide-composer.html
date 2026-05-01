@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Guide Email Generator — Bill Layne Insurance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background-color: #f1f5f9;
+  color: #0f172a;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============ TOOL HEADER ============ */
+.tool-header {
+  background: linear-gradient(135deg, #003f87 0%, #0058b9 100%);
+  border-bottom: 3px solid #C8A84E;
+  padding: 18px 28px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+}
+.tool-header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.brand-logo {
+  background: #ffffff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+}
+.brand-logo img {
+  height: 32px;
+  display: block;
+}
+.brand-text h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+.brand-text p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: #bfdbfe;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+.carrier-badge {
+  background: #ffffff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.carrier-badge img {
+  height: 24px;
+  display: block;
+}
+.carrier-badge span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #003f87;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* ============ MAIN LAYOUT ============ */
+.layout {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .layout {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+}
+
+/* ============ FORM PANEL ============ */
+.form-panel {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 26px;
+  position: sticky;
+  top: 100px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+@media (max-width: 980px) {
+  .form-panel { position: static; }
+}
+
+.form-panel h2 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.form-panel h2::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(180deg, #003f87, #C8A84E);
+  border-radius: 2px;
+}
+.form-panel .form-subtitle {
+  margin: 0 0 22px 0;
+  font-size: 12px;
+  color: #64748b;
+  padding-left: 12px;
+}
+
+.form-field {
+  margin-bottom: 14px;
+}
+.form-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+.form-field label .opt {
+  font-weight: 500;
+  text-transform: none;
+  color: #94a3b8;
+  letter-spacing: 0;
+}
+.form-field input,
+.form-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+.form-field textarea {
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.5;
+}
+.form-field input:hover,
+.form-field textarea:hover { border-color: #cbd5e1; }
+.form-field input:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: #003f87;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 63, 135, 0.12);
+}
+.form-field input::placeholder,
+.form-field textarea::placeholder { color: #cbd5e1; font-weight: 400; }
+.field-hint {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 22px -26px 18px -26px;
+}
+
+/* ============ ACTIONS ============ */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+}
+.btn {
+  width: 100%;
+  padding: 13px 18px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 0.2px;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  background: #003f87;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 63, 135, 0.25);
+}
+.btn-primary:hover {
+  background: #002d63;
+  box-shadow: 0 4px 12px rgba(0, 63, 135, 0.35);
+}
+.btn-secondary {
+  background: #ffffff;
+  color: #003f87;
+  border: 2px solid #003f87;
+}
+.btn-secondary:hover {
+  background: #f0f9ff;
+}
+.btn-pdf {
+  background: #ffffff;
+  color: #92400e;
+  border: 2px solid #C8A84E;
+}
+.btn-pdf:hover {
+  background: #fffbeb;
+  border-color: #b8943d;
+}
+
+/* Spanish bundle divider — visual separator above Spanish action */
+.lang-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 2px 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+.lang-divider::before,
+.lang-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+/* Spanish bundle button — Mexican-flag green accent */
+.btn-spanish {
+  background: #ffffff;
+  color: #006847;
+  border: 2px solid #006847;
+}
+.btn-spanish:hover {
+  background: #f0fdf4;
+  border-color: #054527;
+  color: #054527;
+}
+.btn-spanish .flag-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+.btn-tertiary {
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 8px;
+}
+.btn-tertiary:hover { color: #b91c1c; }
+
+/* ============ HELP CARD ============ */
+.help-card {
+  margin-top: 22px;
+  padding: 14px 16px;
+  background: #f0f9ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #1e40af;
+  line-height: 1.6;
+}
+.help-card strong { color: #0f172a; display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; }
+.help-card ol { margin: 0; padding-left: 18px; }
+.help-card li { margin: 4px 0; }
+.help-card kbd {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 11px;
+  color: #0f172a;
+}
+
+/* ============ PREVIEW PANEL ============ */
+.preview-panel {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  background: #fafafa;
+  border-bottom: 1px solid #e2e8f0;
+}
+.preview-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.preview-header .live-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 2px;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.preview-meta {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+.preview-frame {
+  background: #f1f5f9;
+  padding: 0;
+  max-height: 78vh;
+  overflow-y: auto;
+}
+.preview-frame::-webkit-scrollbar { width: 10px; }
+.preview-frame::-webkit-scrollbar-track { background: #f1f5f9; }
+.preview-frame::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; }
+.preview-frame::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+#email-preview {
+  width: 100%;
+}
+.placeholder-empty {
+  background: #fef9c3;
+  color: #854d0e;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* ============ TOAST ============ */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  background: #0f172a;
+  color: #ffffff;
+  padding: 14px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 200;
+  max-width: 90vw;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.toast-success { background: #059669; }
+.toast.toast-error { background: #b91c1c; }
+.toast.toast-info { background: #003f87; }
+
+/* ============ TOOL FOOTER ============ */
+.tool-footer {
+  text-align: center;
+  padding: 24px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.tool-footer strong { color: #475569; }
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="tool-header">
+  <div class="tool-header-inner">
+    <div class="brand">
+      <div class="brand-logo">
+        <img src="https://i.imgur.com/lxu9nfT.png" alt="Bill Layne Insurance Agency">
+      </div>
+      <div class="brand-text">
+        <h1>Photo Guide Email Generator</h1>
+        <p>NC Grange Mutual · New Homeowners Underwriting</p>
+      </div>
+    </div>
+    <div class="carrier-badge">
+      <img src="https://i.imgur.com/Fesnkng.png" alt="NC Grange Mutual">
+      <span>Carrier</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MAIN LAYOUT ============ -->
+<main class="layout">
+
+  <!-- FORM PANEL -->
+  <aside class="form-panel">
+    <h2>Customer Details</h2>
+    <p class="form-subtitle">Fill in once — preview updates as you type</p>
+
+    <div class="field-row">
+      <div class="form-field">
+        <label for="firstName">First Name</label>
+        <input type="text" id="firstName" placeholder="Sarah" autocomplete="off">
+      </div>
+      <div class="form-field">
+        <label for="lastName">Last Name <span class="opt">(opt)</span></label>
+        <input type="text" id="lastName" placeholder="Johnson" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="email">Customer Email</label>
+      <input type="email" id="email" placeholder="sarah@example.com" autocomplete="off">
+    </div>
+
+    <div class="form-field">
+      <label for="address">Property Address</label>
+      <input type="text" id="address" placeholder="123 Main St, Elkin, NC 28621" autocomplete="off">
+    </div>
+
+    <div class="form-field">
+      <label for="policy">Policy Number</label>
+      <input type="text" id="policy" placeholder="HG12345678" autocomplete="off">
+    </div>
+
+    <div class="form-field">
+      <label for="phone">Customer Phone <span class="opt">(for PDF)</span></label>
+      <input type="tel" id="phone" placeholder="(336) 555-1234" autocomplete="off">
+    </div>
+
+    <div class="form-field">
+      <label for="notes">Additional Notes <span class="opt">(appears in email + PDF if filled)</span></label>
+      <textarea id="notes" rows="3" placeholder="e.g. Please also confirm the roof age (year shingles were installed)"></textarea>
+      <div class="field-hint">Use this for anything you need beyond the 9 photos — roof age, HVAC age, water heater install date, etc.</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-field">
+      <label for="subject">Subject Line</label>
+      <input type="text" id="subject" value="9 quick photos for your new policy">
+    </div>
+
+    <div class="form-field">
+      <label for="bcc">BCC <span class="opt">(E&amp;O recordkeeping)</span></label>
+      <input type="email" id="bcc" value="Save@BillLayneInsurance.com">
+    </div>
+
+    <div class="actions">
+      <button type="button" id="syncBtn" class="btn btn-primary">
+        <span>✉️</span><span>Sync to Gmail</span>
+      </button>
+      <button type="button" id="printBtn" class="btn btn-pdf">
+        <span>🖨️</span><span>Print PDF Version</span>
+      </button>
+
+      <div class="lang-divider"><span>For Spanish-speaking customers</span></div>
+
+      <button type="button" id="spanishBtn" class="btn btn-spanish">
+        <span class="flag-emoji">🇲🇽</span><span>Español: Email + PDF en Un Clic</span>
+      </button>
+
+      <button type="button" id="copyBtn" class="btn btn-secondary">
+        <span>📋</span><span>Copy Email Only</span>
+      </button>
+      <button type="button" id="resetBtn" class="btn btn-tertiary">
+        Reset Form
+      </button>
+    </div>
+
+    <div class="help-card">
+      <strong>How it works</strong>
+      <ol>
+        <li>Fill in the customer fields above</li>
+        <li><strong>Sync to Gmail</strong> — copies the styled email and opens Gmail compose. Then paste with <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd></li>
+        <li><strong>Print PDF</strong> — opens the letterhead-style guide with customer info pre-filled, ready to save as PDF and attach</li>
+        <li><strong>🇲🇽 Español</strong> — one click does both: opens Gmail (Spanish subject) AND opens the Spanish PDF, with the Spanish email copied to your clipboard</li>
+      </ol>
+    </div>
+  </aside>
+
+  <!-- PREVIEW PANEL -->
+  <section class="preview-panel">
+    <div class="preview-header">
+      <h2><span class="live-dot"></span>Live Preview</h2>
+      <span class="preview-meta">600px Gmail-optimized · Updates as you type</span>
+    </div>
+    <div class="preview-frame">
+      <div id="email-preview"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<div class="tool-footer">
+  <strong>Bill Layne Insurance Agency</strong> · 1283 N Bridge St, Elkin, NC 28621 · (336) 835-1993
+</div>
+
+<!-- ============ TOAST ============ -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ===========================================
+// EMAIL TEMPLATE — string with {{MERGE_FIELDS}}
+// ===========================================
+const EMAIL_TEMPLATE = `<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f1f5f9" style="background-color:#f1f5f9;font-family:'Inter',Arial,'Helvetica Neue',Helvetica,sans-serif;">
+<tr><td align="center" style="padding:24px 16px;">
+
+<table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;margin:0 auto;">
+
+<!-- CARD 1: HEADER — Agency logo + NC Grange logo -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fafafa" style="background-color:#fafafa;border-radius:16px 16px 0 0;border:1px solid #e2e8f0;border-bottom:none;">
+<tr><td style="padding:20px 24px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td align="left" valign="middle" style="width:50%;">
+<table cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:8px;padding:6px 10px;border:1px solid #e2e8f0;">
+<img src="https://i.imgur.com/lxu9nfT.png" width="148" alt="Bill Layne Insurance Agency" style="display:block;width:148px;max-width:148px;height:auto;">
+</td>
+</tr></table>
+</td>
+<td align="right" valign="middle" style="width:50%;">
+<table cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:8px;padding:6px 10px;border:1px solid #e2e8f0;">
+<img src="https://i.imgur.com/Fesnkng.png" width="130" alt="NC Grange Mutual" style="display:block;width:130px;max-width:130px;height:auto;margin-left:auto;">
+</td>
+</tr></table>
+</td>
+</tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 2: HERO -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#003f87" style="background-color:#003f87;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td align="center" style="padding:44px 32px 40px 32px;background:linear-gradient(135deg,#003f87 0%,#0058b9 50%,#0076d3 100%);background-color:#003f87;text-align:center;">
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 18px auto;"><tr>
+<td bgcolor="rgba(255,255,255,0.15)" style="background-color:rgba(255,255,255,0.15);border-radius:8px;padding:14px 16px;">
+<div style="font-size:32px;line-height:1;">📷</div>
+</td></tr></table>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:30px;font-weight:800;color:#ffffff;line-height:1.2;letter-spacing:-0.5px;">Home Insurance Photo Guide</div>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:15px;color:#dbeafe;line-height:1.6;padding-top:10px;max-width:440px;margin:0 auto;">We need 9 quick photos of your home to finalize your new policy. Use the examples below as a guide.</div>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto 0 auto;"><tr>
+<td bgcolor="rgba(255,255,255,0.15)" style="background-color:rgba(255,255,255,0.15);border-radius:20px;padding:6px 16px;">
+<span style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#ffffff;letter-spacing:0.3px;">● Action Needed to Activate Coverage</span>
+</td></tr></table>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto 0 auto;"><tr>
+<td style="padding:0 4px;"><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#ffffff;background-color:rgba(255,255,255,0.12);padding:5px 12px;border-radius:10px;display:inline-block;">9 Photos</span></td>
+<td style="padding:0 4px;"><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#ffffff;background-color:rgba(255,255,255,0.12);padding:5px 12px;border-radius:10px;display:inline-block;">~5 Min Total</span></td>
+<td style="padding:0 4px;"><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#ffffff;background-color:rgba(255,255,255,0.12);padding:5px 12px;border-radius:10px;display:inline-block;">Text or Upload</span></td>
+</tr></table>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 3: GREETING -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:32px 32px 8px 32px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:18px;font-weight:700;color:#0f172a;">Hi {{CUSTOMER_FIRST_NAME}},</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;color:#475569;line-height:1.7;padding-top:14px;">Thank you for choosing Bill Layne Insurance and <strong style="color:#0f172a;">NC Grange Mutual</strong> for your new homeowners policy. To finalize underwriting, your carrier needs <strong style="color:#0f172a;">9 quick photos</strong> of your home — both inside and outside.</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;color:#475569;line-height:1.7;padding-top:12px;">Most clients knock this out in about 5 minutes with their phone. Pick whichever submission method is easiest for you below, then walk through the 9 photos in this guide.</div>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 3.5: POLICY DETAILS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:18px 32px 8px 32px;">
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f9ff" style="background-color:#f0f9ff;border:1px solid #bfdbfe;border-radius:10px;">
+<tr><td style="padding:18px 22px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#1e40af;padding-bottom:12px;">● Your New Policy</div>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td valign="top" style="width:24px;font-size:16px;line-height:1.4;padding-top:1px;">🏠</td>
+<td valign="top" style="padding-left:10px;padding-bottom:10px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Property Address</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#0f172a;padding-top:3px;line-height:1.4;">{{POLICY_ADDRESS}}</div>
+</td>
+</tr>
+<tr>
+<td valign="top" style="width:24px;font-size:16px;line-height:1.4;padding-top:1px;">📋</td>
+<td valign="top" style="padding-left:10px;padding-bottom:10px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Policy Number</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#0f172a;padding-top:3px;line-height:1.4;">{{POLICY_NUMBER}}</div>
+</td>
+</tr>
+<tr>
+<td valign="top" style="width:24px;font-size:16px;line-height:1.4;padding-top:1px;">🛡️</td>
+<td valign="top" style="padding-left:10px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Carrier</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#0f172a;padding-top:3px;line-height:1.4;">NC Grange Mutual Insurance</div>
+</td>
+</tr>
+</table>
+</td></tr>
+</table>
+
+</td></tr>
+</table>
+</td></tr>
+
+{{NOTES_BLOCK}}
+
+<!-- CARD 4: TWO SUBMISSION OPTIONS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:24px 32px 32px 32px;">
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#003f87;padding-bottom:6px;">● 2 Easy Ways to Submit</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:20px;font-weight:700;color:#1e293b;padding-bottom:18px;">Pick Whichever Is Easier</div>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td valign="top" style="width:50%;padding-right:8px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fffbeb" style="background-color:#fffbeb;border:2px solid #f59e0b;border-radius:10px;">
+<tr><td align="center" style="padding:18px 14px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#92400e;padding-bottom:6px;">📱 Option 1 — Text</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#92400e;padding-bottom:10px;">Send photos to:</div>
+<a href="sms:+13368279065" style="text-decoration:none;color:#003f87;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:20px;font-weight:800;color:#003f87;line-height:1.1;">(336) 827-9065</div>
+</a>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#78350f;padding-top:8px;line-height:1.4;">Include your name in the<br>text message</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:50%;padding-left:8px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#eff6ff" style="background-color:#eff6ff;border:2px solid #3b82f6;border-radius:10px;">
+<tr><td align="center" style="padding:18px 14px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#1e40af;padding-bottom:6px;">💻 Option 2 — Upload</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#1e40af;padding-bottom:10px;">Visit online:</div>
+<a href="https://www.sendbilldocs.com?name={{CUSTOMER_FULL_NAME_ENC}}&email={{CUSTOMER_EMAIL_ENC}}&notes=NC%20Grange%20home%20underwriting%20photos%20-%20Policy%20{{POLICY_NUMBER_ENC}}&photos=9" style="text-decoration:none;color:#1d4ed8;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:18px;font-weight:800;color:#1d4ed8;line-height:1.1;">SendBillDocs.com</div>
+</a>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#1e40af;padding-top:8px;line-height:1.4;">Open on your phone — tap,<br>snap, and send</div>
+</td></tr>
+</table>
+</td>
+</tr>
+</table>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 5: 4-STEP PROCESS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fafafa" style="background-color:#fafafa;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:28px 32px;">
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#003f87;padding-bottom:6px;text-align:center;">● How It Works</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:20px;font-weight:700;color:#1e293b;padding-bottom:20px;text-align:center;">4 Simple Steps</div>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">1</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Look at each<br>example photo</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">2</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Take the same<br>photo at home</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">3</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Text or upload<br>all 9 photos</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">4</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Include your<br>full name</div>
+</td></tr>
+</table>
+</td>
+</tr></table>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 6: PHOTO GRID HEADER -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:32px 32px 8px 32px;" align="center">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#003f87;padding-bottom:6px;">● What We Need</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:24px;font-weight:700;color:#1e293b;line-height:1.2;">9 Photos to Submit</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#64748b;padding-top:8px;">Use these examples as a guide — match each one in your home</div>
+<table cellpadding="0" cellspacing="0" border="0" width="60" align="center" style="margin:18px auto 0 auto;">
+<tr><td height="3" style="height:3px;background-color:#C8A84E;font-size:0;line-height:0;">&nbsp;</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+__PHOTO_CARDS__
+
+<!-- CARD 7: PHOTO TIPS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:8px 32px 28px 32px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fefce8" style="background-color:#fefce8;border:1px solid #fde68a;border-radius:10px;">
+<tr><td style="padding:18px 22px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;font-weight:700;color:#78350f;padding-bottom:10px;">💡 Photo Tips</div>
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;Turn on all the lights in the room before snapping</td></tr>
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;Step back so the whole area fits in the frame</td></tr>
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;No filters — just a normal camera photo</td></tr>
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;Hold the phone steady — blurry photos may need to be retaken</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 8: PDF NOTE -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:0 32px 28px 32px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f9ff" style="background-color:#f0f9ff;border:1px solid #bfdbfe;border-radius:10px;">
+<tr><td style="padding:18px 22px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td width="48" valign="top" style="padding-right:14px;">
+<table cellpadding="0" cellspacing="0" border="0" width="40" height="40" style="width:40px;height:40px;">
+<tr><td width="40" height="40" align="center" valign="middle" bgcolor="#003f87" style="width:40px;height:40px;background-color:#003f87;border-radius:8px;font-size:20px;line-height:40px;color:#ffffff;">📎</td></tr>
+</table>
+</td>
+<td valign="top">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:700;color:#0f172a;padding-bottom:4px;">Printable PDF Attached</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#475569;line-height:1.6;">We've also attached this guide as a PDF. Print it and use it as a checklist as you walk through your home — that way you won't miss any of the 9 photos.</div>
+</td>
+</tr></table>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 9: DUAL CTA -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td align="center" style="padding:8px 32px 28px 32px;">
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;color:#475569;line-height:1.6;padding-bottom:20px;text-align:center;">Need help with the photos or have a question? Reply to this email or reach out — I'm here to help.</div>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px auto;">
+<tr><td bgcolor="#003f87" style="background-color:#003f87;border-radius:8px;">
+<a href="tel:3368351993" style="display:inline-block;padding:14px 32px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">📞 &nbsp;Call My Agent &nbsp;·&nbsp; (336) 835-1993</a>
+</td></tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+<tr><td bgcolor="#ffffff" style="background-color:#ffffff;border:2px solid #003f87;border-radius:8px;">
+<a href="https://m.me/dollarbillagency" style="display:inline-block;padding:12px 32px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:700;color:#003f87;text-decoration:none;">💬 &nbsp;Chat on Facebook Messenger</a>
+</td></tr>
+</table>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#94a3b8;padding-top:10px;">Mon–Fri 9am–5pm &nbsp;·&nbsp; We reply within 1 business hour</div>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#1e293b;line-height:1.6;padding-top:24px;text-align:center;">Thanks for sending these in — once we have all 9 photos, your underwriting is complete and your policy is locked in.<br><br><strong>— Bill Layne</strong></div>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- FOOTER -->
+<tr><td>
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fafafa" style="background-color:#fafafa;border-radius:0 0 16px 16px;border:1px solid #e2e8f0;border-top:none;">
+<tr><td style="padding:28px 24px;text-align:center;">
+
+<table cellpadding="0" cellspacing="0" border="0" width="80" align="center" style="margin:0 auto 20px auto;">
+<tr><td height="3" style="height:3px;background:linear-gradient(90deg,#003f87,#C8A84E);background-color:#C8A84E;font-size:0;line-height:0;">&nbsp;</td></tr>
+</table>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 14px auto;"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;">
+<img src="https://i.imgur.com/lxu9nfT.png" width="140" alt="Bill Layne Insurance Agency" style="display:block;width:140px;height:auto;">
+</td></tr></table>
+
+<p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;font-family:'Inter',Arial,sans-serif;">Bill Layne Insurance Agency</p>
+<p style="margin:0 0 2px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;">1283 N Bridge St &bull; Elkin, NC 28621</p>
+<p style="margin:0 0 2px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;">(336) 835-1993 &bull; <a href="mailto:Save@BillLayneInsurance.com" style="color:#003f87;text-decoration:none;">Save@BillLayneInsurance.com</a></p>
+<p style="margin:0 0 14px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;"><a href="https://www.BillLayneInsurance.com" style="color:#003f87;text-decoration:none;">www.BillLayneInsurance.com</a> &bull; Est. 2005</p>
+
+<p style="margin:0 0 14px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;">
+<a href="https://www.facebook.com/dollarbillagency" style="color:#003f87;text-decoration:none;font-weight:600;">Facebook</a>
+&nbsp;|&nbsp;
+<a href="https://www.youtube.com/@ncautoandhome" style="color:#003f87;text-decoration:none;font-weight:600;">YouTube</a>
+&nbsp;|&nbsp;
+<a href="https://www.instagram.com/ncautoandhome" style="color:#003f87;text-decoration:none;font-weight:600;">Instagram</a>
+&nbsp;|&nbsp;
+<a href="https://twitter.com/shopsavecompare" style="color:#003f87;text-decoration:none;font-weight:600;">X</a>
+</p>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 14px auto;"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;padding:8px 14px;border-radius:20px;border:1px solid #e2e8f0;">
+<table cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle" style="padding-right:8px;"><img src="https://i.imgur.com/nDFmjxh.png" width="16" alt="Google" style="display:block;width:16px;height:16px;"></td>
+<td valign="middle" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;">4.9 ★★★★★ &nbsp;<span style="color:#64748b;font-weight:400;">100+ Google Reviews</span></td>
+</tr></table>
+</td></tr></table>
+
+<p style="margin:0 0 6px 0;font-size:11px;color:#64748b;font-family:'Inter',Arial,sans-serif;">Follow us on <a href="https://www.facebook.com/dollarbillagency" style="color:#003f87;text-decoration:none;font-weight:600;">Facebook</a> for tips, updates, and local news.</p>
+
+<p style="margin:0 0 14px 0;font-size:11px;color:#64748b;font-family:'Inter',Arial,sans-serif;">Prefer Messenger? <a href="https://m.me/dollarbillagency?text=Yes%2C%20please%20send%20my%20policy%20updates%20via%20Messenger" style="color:#003f87;text-decoration:none;font-weight:600;">Tap here to opt in</a> for policy updates.</p>
+
+<p style="margin:0;font-size:11px;color:#94a3b8;font-family:'Inter',Arial,sans-serif;line-height:1.6;">This email was sent to {{CUSTOMER_EMAIL}} regarding your new homeowners policy.<br><a href="mailto:Save@BillLayneInsurance.com?subject=Unsubscribe" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a> &bull; &copy; 2026 Bill Layne Insurance Agency</p>
+
+</td></tr>
+</table>
+</td></tr>
+
+</table>
+</td></tr>
+</table>`;
+
+// ===========================================
+// PHOTO CARDS — built once, inserted into template
+// ===========================================
+const PHOTOS = [
+  { num: 1, img: 'https://i.imgur.com/HC2yn6G.jpeg', cat: 'Interior', title: 'Kitchen', desc: 'Stand in the doorway. Get the stove, fridge, and countertops all in one shot.' },
+  { num: 2, img: 'https://i.imgur.com/LmrRRFq.jpeg', cat: 'Interior', title: 'Living Room', desc: 'Stand in a corner so the whole room fits in one photo.' },
+  { num: 3, img: 'https://i.imgur.com/wGZfagl.jpeg', cat: 'Interior', title: 'Bathroom', desc: 'Show the tub or shower, sink, and toilet all in one wide photo.' },
+  { num: 4, img: 'https://i.imgur.com/yY4Xcbo.jpeg', cat: 'Systems', title: 'Breaker Box', desc: '<strong style="color:#b91c1c;">Open the panel door first.</strong> Take a photo showing all the switches inside.' },
+  { num: 5, img: 'https://i.imgur.com/G6lFX7G.jpeg', cat: 'Systems', title: 'Water Heater', desc: 'Get the whole unit. <strong style="color:#b91c1c;">Make sure the age/brand sticker is visible.</strong>' },
+  { num: 6, img: 'https://i.imgur.com/qi6MPc8.jpeg', cat: 'Systems', title: 'Thermostat', desc: 'Get close enough so we can read the brand name on the screen.' },
+  { num: 7, img: 'https://i.imgur.com/yKXsPdq.jpeg', cat: 'Plumbing', title: 'Under Kitchen Sink', desc: '<strong style="color:#b91c1c;">Open the cabinet doors.</strong> Show the pipes underneath.' },
+  { num: 8, img: 'https://i.imgur.com/jY7HV4e.jpeg', cat: 'Plumbing', title: 'Under Bathroom Sink', desc: '<strong style="color:#b91c1c;">Open the cabinet doors.</strong> Show the pipes underneath.' },
+  { num: 9, img: 'https://i.imgur.com/2kz7rAQ.jpeg', cat: 'Exterior', title: 'Shed / Outbuilding', desc: 'Any shed, barn, or detached garage from outside. <strong style="color:#0f172a;">No shed? Skip this one.</strong>' }
+];
+
+function buildPhotoCards(photos, labelPrefix) {
+  photos = photos || PHOTOS;
+  labelPrefix = labelPrefix || 'PHOTO';
+  return photos.map((p, i) => {
+    const lastPad = i === photos.length - 1 ? 'padding:18px 32px 28px 32px;' : 'padding:18px 32px;';
+    return `
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="${lastPad}">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;">
+<tr><td style="font-size:0;line-height:0;">
+<img src="${p.img}" alt="${p.title} example" width="536" style="display:block;width:100%;max-width:536px;height:auto;">
+</td></tr>
+<tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:14px 18px 16px 18px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td valign="middle">
+<table cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="#003f87" style="background-color:#003f87;border-radius:6px;padding:4px 10px;">
+<span style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:800;color:#C8A84E;letter-spacing:0.5px;">${labelPrefix} ${p.num}</span>
+</td></tr></table>
+</td>
+<td valign="middle" align="right">
+<span style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.8px;text-transform:uppercase;">${p.cat}</span>
+</td>
+</tr>
+</table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:17px;font-weight:700;color:#0f172a;padding-top:10px;">${p.title}</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#475569;line-height:1.6;padding-top:4px;">${p.desc}</div>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>`;
+  }).join('');
+}
+
+// ===========================================
+// SPANISH PHOTO DATA
+// ===========================================
+const PHOTOS_ES = [
+  { num: 1, img: 'https://i.imgur.com/HC2yn6G.jpeg', cat: 'Interior', title: 'Cocina', desc: 'Párese en la entrada. Capture la estufa, el refrigerador y los gabinetes en una sola foto.' },
+  { num: 2, img: 'https://i.imgur.com/LmrRRFq.jpeg', cat: 'Interior', title: 'Sala', desc: 'Párese en una esquina para que toda la sala quepa en una foto.' },
+  { num: 3, img: 'https://i.imgur.com/wGZfagl.jpeg', cat: 'Interior', title: 'Baño', desc: 'Muestre la tina o ducha, el lavabo y el inodoro en una foto amplia.' },
+  { num: 4, img: 'https://i.imgur.com/yY4Xcbo.jpeg', cat: 'Sistemas', title: 'Caja de Breakers', desc: '<strong style="color:#b91c1c;">Abra primero la puerta del panel.</strong> Tome una foto que muestre todos los breakers adentro.' },
+  { num: 5, img: 'https://i.imgur.com/G6lFX7G.jpeg', cat: 'Sistemas', title: 'Calentador de Agua', desc: 'Capture toda la unidad. <strong style="color:#b91c1c;">Asegúrese de que la etiqueta de edad/marca sea visible.</strong>' },
+  { num: 6, img: 'https://i.imgur.com/qi6MPc8.jpeg', cat: 'Sistemas', title: 'Termostato', desc: 'Acérquese lo suficiente para que podamos leer la marca en la pantalla.' },
+  { num: 7, img: 'https://i.imgur.com/yKXsPdq.jpeg', cat: 'Plomería', title: 'Debajo del Lavabo de la Cocina', desc: '<strong style="color:#b91c1c;">Abra las puertas del gabinete.</strong> Muestre las tuberías debajo.' },
+  { num: 8, img: 'https://i.imgur.com/jY7HV4e.jpeg', cat: 'Plomería', title: 'Debajo del Lavabo del Baño', desc: '<strong style="color:#b91c1c;">Abra las puertas del gabinete.</strong> Muestre las tuberías debajo.' },
+  { num: 9, img: 'https://i.imgur.com/2kz7rAQ.jpeg', cat: 'Exterior', title: 'Cobertizo / Bodega', desc: 'Cualquier cobertizo, granero o garaje desde afuera. <strong style="color:#0f172a;">¿No tiene cobertizo? Omita esta foto.</strong>' }
+];
+
+// ===========================================
+// PDF TEMPLATE — printable letterhead version
+// (matches original home_photo_guide PDF style, with merged customer data)
+// ===========================================
+const PDF_TEMPLATE = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Home Photo Guide — {{POLICYHOLDER_NAME}}</title>
+<style>
+@page { size: letter; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  width: 100%;
+  padding: 0.35in 0.45in;
+  color: #1e293b;
+  line-height: 1.2;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* No-print toolbar (visible only on screen) */
+.toolbar {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  background: #003366;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 999;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+}
+.toolbar button {
+  background: #FFC300;
+  color: #003366;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+}
+.toolbar button:hover { background: #ffd633; }
+.toolbar button.close { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+@media print { .toolbar { display: none !important; } }
+
+/* === LETTERHEAD === */
+.letterhead {
+  display: table;
+  width: 100%;
+  padding-bottom: 7px;
+  border-bottom: 2.5px solid #003366;
+  margin-bottom: 10px;
+}
+.lh-left { display: table-cell; vertical-align: middle; }
+.lh-left img { height: 44px; }
+.lh-right {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: right;
+  font-size: 8.5pt;
+  color: #475569;
+  line-height: 1.6;
+}
+.lh-right strong { color: #003366; font-size: 9.5pt; }
+.lh-right a { color: #2563eb; text-decoration: none; }
+
+/* === CARRIER STRIP === */
+.carrier-strip {
+  display: table;
+  width: 100%;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+}
+.cs-left { display: table-cell; vertical-align: middle; }
+.cs-left img { height: 26px; }
+.cs-right {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: right;
+  font-size: 8pt;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* === TITLE BAR === */
+.title-bar {
+  background: #003366;
+  border-radius: 7px;
+  padding: 7px 16px;
+  margin-bottom: 8px;
+}
+.title-bar h1 {
+  font-size: 17pt;
+  font-weight: 900;
+  color: white;
+  line-height: 1.1;
+  text-align: center;
+}
+.title-bar h1 span { color: #FFC300; }
+.title-bar p {
+  font-size: 9pt;
+  color: rgba(255,255,255,0.75);
+  text-align: center;
+  margin-top: 3px;
+}
+
+/* === SEND OPTIONS === */
+.send-options {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px 0;
+  margin-bottom: 7px;
+}
+.send-opt {
+  display: table-cell;
+  width: 50%;
+  border-radius: 7px;
+  padding: 8px 12px;
+  vertical-align: middle;
+  text-align: center;
+}
+.send-opt-text { background: #FFC300; border: 2px solid #d97706; }
+.send-opt-web { background: #eff6ff; border: 2px solid #93c5fd; }
+.so-label { font-size: 7.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1px; }
+.send-opt-text .so-label { color: #78350f; }
+.send-opt-web .so-label { color: #1e40af; }
+.so-value { font-size: 15pt; font-weight: 900; line-height: 1.2; }
+.send-opt-text .so-value { color: #003366; }
+.send-opt-web .so-value { color: #1d4ed8; }
+.so-hint { font-size: 7.5pt; margin-top: 1px; }
+.send-opt-text .so-hint { color: #92400e; }
+.send-opt-web .so-hint { color: #3b82f6; }
+
+/* === STEPS === */
+.steps-row { display: table; width: 100%; border-collapse: separate; border-spacing: 5px 0; margin-bottom: 8px; }
+.step-cell { display: table-cell; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 5px; padding: 5px 6px; text-align: center; width: 25%; vertical-align: middle; }
+.sn { display: inline-block; background: #003366; color: #FFC300; font-size: 8pt; font-weight: 900; width: 17px; height: 17px; line-height: 17px; text-align: center; border-radius: 4px; vertical-align: middle; margin-right: 3px; }
+.st { font-size: 8pt; font-weight: 700; color: #003366; line-height: 1.25; }
+
+/* === PHOTO GRID === */
+.grid { display: table; width: 100%; border-collapse: separate; border-spacing: 6px 6px; margin-bottom: 8px; }
+.grid-row { display: table-row; }
+.card { display: table-cell; width: 33.33%; border: 1.5px solid #cbd5e1; border-radius: 6px; overflow: hidden; vertical-align: top; background: white; }
+.card-img { position: relative; width: 100%; height: 108px; overflow: hidden; background: #e2e8f0; }
+.card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-num { position: absolute; top: 4px; left: 4px; background: #003366; color: #FFC300; font-size: 9pt; font-weight: 900; padding: 1px 8px; border-radius: 4px; }
+.card-ex { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,51,102,0.7); color: white; font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; padding: 2px 0; }
+.card-txt { padding: 4px 7px 5px; }
+.card-txt h3 { font-size: 9pt; font-weight: 900; color: #003366; line-height: 1.15; margin-bottom: 2px; }
+.card-txt p { font-size: 8pt; color: #475569; line-height: 1.3; }
+.card-txt p b { color: #b91c1c; }
+
+/* === TIPS === */
+.tips { background: #fefce8; border: 1.5px solid #fde68a; border-radius: 5px; padding: 5px 12px; margin-bottom: 7px; font-size: 8pt; color: #78350f; line-height: 1.4; }
+.tips strong { color: #92400e; }
+
+/* === ADDITIONAL NOTES BANNER === */
+.extra-info { display: table; width: 100%; background: #fffbeb; border: 2px solid #f59e0b; border-radius: 7px; margin-bottom: 8px; }
+.ei-icon { display: table-cell; width: 38px; vertical-align: middle; text-align: center; background: #f59e0b; color: white; font-size: 16pt; padding: 0; border-radius: 5px 0 0 5px; }
+.ei-content { display: table-cell; vertical-align: middle; padding: 6px 12px; }
+.ei-label { font-size: 7.5pt; font-weight: 900; color: #92400e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+.ei-text { font-size: 9.5pt; color: #78350f; line-height: 1.4; font-weight: 600; }
+
+/* === POLICY INFO (DATA-FILLED) === */
+.info-section {
+  border: 2px solid #003366;
+  border-radius: 7px;
+  padding: 7px 14px 8px;
+  margin-bottom: 6px;
+  background: #f8fafc;
+}
+.info-title {
+  font-size: 9.5pt;
+  font-weight: 900;
+  color: #003366;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #cbd5e1;
+}
+.info-grid { display: table; width: 100%; border-collapse: separate; border-spacing: 16px 0; }
+.info-col { display: table-cell; width: 50%; vertical-align: top; }
+.info-field { margin-bottom: 7px; }
+.info-field:last-child { margin-bottom: 0; }
+.info-label {
+  font-size: 7pt;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+.info-data {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #003366;
+  padding: 1px 0 3px 0;
+  border-bottom: 1px solid #cbd5e1;
+  min-height: 14px;
+}
+.info-data.empty { color: #cbd5e1; font-weight: 400; font-style: italic; }
+
+/* === FOOTER === */
+.footer { border-top: 2px solid #003366; padding-top: 6px; text-align: center; font-size: 8pt; color: #64748b; line-height: 1.6; }
+.footer strong { color: #003366; }
+.footer a { color: #2563eb; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<!-- Toolbar (no-print) -->
+<div class="toolbar">
+  <span>📄 Ready to print</span>
+  <button onclick="window.print()">🖨️ Print / Save PDF</button>
+  <button class="close" onclick="window.close()">Close</button>
+</div>
+
+<!-- LETTERHEAD -->
+<div class="letterhead">
+  <div class="lh-left">
+    <img src="https://i.imgur.com/lxu9nfT.png" alt="Bill Layne Insurance Agency">
+  </div>
+  <div class="lh-right">
+    <strong>Bill Layne Insurance Agency</strong><br>
+    1283 N Bridge St, Elkin, NC 28621<br>
+    Phone: <strong>(336) 835-1993</strong> &nbsp;|&nbsp; <a href="https://www.BillLayneInsurance.com">www.BillLayneInsurance.com</a>
+  </div>
+</div>
+
+<!-- CARRIER STRIP -->
+<div class="carrier-strip">
+  <div class="cs-left">
+    <img src="https://i.imgur.com/Fesnkng.png" alt="NC Grange Mutual">
+  </div>
+  <div class="cs-right">New Homeowners Underwriting</div>
+</div>
+
+<!-- TITLE -->
+<div class="title-bar">
+  <h1>Home Insurance <span>Photo Guide</span></h1>
+  <p>We need 9 photos of your home to finish setting up your policy. Use the examples below as a guide.</p>
+</div>
+
+{{NOTES_BLOCK}}
+
+<!-- 2 SEND OPTIONS -->
+<div class="send-options">
+  <div class="send-opt send-opt-text">
+    <div class="so-label">&#128241; Option 1 — Text Your Photos To</div>
+    <div class="so-value">(336) 827-9065</div>
+    <div class="so-hint">Include your name in the text message</div>
+  </div>
+  <div class="send-opt send-opt-web">
+    <div class="so-label">&#128187; Option 2 — Upload Online At</div>
+    <div class="so-value">www.SendBillDocs.com</div>
+    <div class="so-hint">Open on your phone — tap, snap, and send</div>
+  </div>
+</div>
+
+<!-- STEPS -->
+<div class="steps-row">
+  <div class="step-cell"><span class="sn">1</span> <span class="st">Look at each<br>example photo</span></div>
+  <div class="step-cell"><span class="sn">2</span> <span class="st">Take the same photo<br>in your home</span></div>
+  <div class="step-cell"><span class="sn">3</span> <span class="st">Text or upload<br>all 9 photos</span></div>
+  <div class="step-cell"><span class="sn">4</span> <span class="st">Include your<br>full name</span></div>
+</div>
+
+<!-- 3x3 PHOTO GRID -->
+<div class="grid">
+  <div class="grid-row">
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/HC2yn6G.jpeg" alt="Kitchen"><div class="card-num">1</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Kitchen</h3><p>Stand in the doorway. Get the stove, fridge, and countertops all in one shot.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/LmrRRFq.jpeg" alt="Living Room"><div class="card-num">2</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Living Room</h3><p>Stand in a corner so the whole room fits in one photo.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/wGZfagl.jpeg" alt="Bathroom"><div class="card-num">3</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Bathroom</h3><p>Show the tub or shower, sink, and toilet all in one wide photo.</p></div></div>
+  </div>
+  <div class="grid-row">
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/yY4Xcbo.jpeg" alt="Breaker Box"><div class="card-num">4</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Breaker Box</h3><p><b>Open the panel door first.</b> Take a photo showing all the switches inside.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/G6lFX7G.jpeg" alt="Water Heater"><div class="card-num">5</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Water Heater</h3><p>Get the whole unit. <b>Make sure the age/brand sticker is visible.</b></p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/qi6MPc8.jpeg" alt="Thermostat"><div class="card-num">6</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Thermostat</h3><p>Get close enough so we can read the brand name on the screen.</p></div></div>
+  </div>
+  <div class="grid-row">
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/yKXsPdq.jpeg" alt="Under Kitchen Sink"><div class="card-num">7</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Under Kitchen Sink</h3><p><b>Open the cabinet doors.</b> Show the pipes underneath.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/jY7HV4e.jpeg" alt="Under Bathroom Sink"><div class="card-num">8</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Under Bathroom Sink</h3><p><b>Open the cabinet doors.</b> Show the pipes underneath.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/2kz7rAQ.jpeg" alt="Shed"><div class="card-num">9</div><div class="card-ex">Example Photo</div></div><div class="card-txt"><h3>Shed / Outbuilding</h3><p>Any shed, barn, or garage from outside. <b>No shed? Skip this one.</b></p></div></div>
+  </div>
+</div>
+
+<!-- TIPS -->
+<div class="tips">
+  <strong>&#128161; Photo Tips:</strong> &nbsp;
+  Turn on all your lights &nbsp;&#8226;&nbsp;
+  Step back so the whole area fits in the frame &nbsp;&#8226;&nbsp;
+  No filters — just a normal camera photo &nbsp;&#8226;&nbsp;
+  <strong>Questions? Call (336) 835-1993</strong>
+</div>
+
+<!-- POLICY INFO (PRE-FILLED) -->
+<div class="info-section">
+  <div class="info-title">&#128196; Policy Information</div>
+  <div class="info-grid">
+    <div class="info-col">
+      <div class="info-field">
+        <div class="info-label">Policyholder Name</div>
+        <div class="info-data {{NAME_EMPTY}}">{{POLICYHOLDER_NAME}}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">Property Address</div>
+        <div class="info-data {{ADDRESS_EMPTY}}">{{PROPERTY_ADDRESS}}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">City / State / Zip</div>
+        <div class="info-data {{CITY_EMPTY}}">{{PROPERTY_CITY}}</div>
+      </div>
+    </div>
+    <div class="info-col">
+      <div class="info-field">
+        <div class="info-label">Insurance Company</div>
+        <div class="info-data">NC Grange Mutual</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">Policy Number</div>
+        <div class="info-data {{POLICY_EMPTY}}">{{POLICY_NUMBER}}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">Phone Number</div>
+        <div class="info-data {{PHONE_EMPTY}}">{{PHONE_NUMBER}}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <strong>Bill Layne Insurance Agency</strong> &nbsp;|&nbsp;
+  1283 N Bridge St, Elkin, NC 28621 &nbsp;|&nbsp;
+  <strong>(336) 835-1993</strong> &nbsp;|&nbsp;
+  <a href="mailto:Save@BillLayneInsurance.com">Save@BillLayneInsurance.com</a> &nbsp;|&nbsp;
+  <a href="https://www.BillLayneInsurance.com">www.BillLayneInsurance.com</a>
+</div>
+
+<script>
+window.addEventListener('load', function() {
+  // Wait briefly so external images can load before the print dialog opens
+  setTimeout(function() { window.print(); }, 700);
+});
+<\/script>
+
+</body>
+</html>`;
+
+// ===========================================
+// EMAIL TEMPLATE — SPANISH
+// ===========================================
+const EMAIL_TEMPLATE_ES = `<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f1f5f9" style="background-color:#f1f5f9;font-family:'Inter',Arial,'Helvetica Neue',Helvetica,sans-serif;">
+<tr><td align="center" style="padding:24px 16px;">
+
+<table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;margin:0 auto;">
+
+<!-- CARD 1: HEADER -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fafafa" style="background-color:#fafafa;border-radius:16px 16px 0 0;border:1px solid #e2e8f0;border-bottom:none;">
+<tr><td style="padding:20px 24px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td align="left" valign="middle" style="width:50%;">
+<table cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:8px;padding:6px 10px;border:1px solid #e2e8f0;">
+<img src="https://i.imgur.com/lxu9nfT.png" width="148" alt="Bill Layne Insurance Agency" style="display:block;width:148px;max-width:148px;height:auto;">
+</td>
+</tr></table>
+</td>
+<td align="right" valign="middle" style="width:50%;">
+<table cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:8px;padding:6px 10px;border:1px solid #e2e8f0;">
+<img src="https://i.imgur.com/Fesnkng.png" width="130" alt="NC Grange Mutual" style="display:block;width:130px;max-width:130px;height:auto;margin-left:auto;">
+</td>
+</tr></table>
+</td>
+</tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 2: HERO -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#003f87" style="background-color:#003f87;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td align="center" style="padding:44px 32px 40px 32px;background:linear-gradient(135deg,#003f87 0%,#0058b9 50%,#0076d3 100%);background-color:#003f87;text-align:center;">
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 18px auto;"><tr>
+<td bgcolor="rgba(255,255,255,0.15)" style="background-color:rgba(255,255,255,0.15);border-radius:8px;padding:14px 16px;">
+<div style="font-size:32px;line-height:1;">📷</div>
+</td></tr></table>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:28px;font-weight:800;color:#ffffff;line-height:1.2;letter-spacing:-0.5px;">Guía de Fotos del Seguro de Hogar</div>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:15px;color:#dbeafe;line-height:1.6;padding-top:10px;max-width:460px;margin:0 auto;">Necesitamos 9 fotos rápidas de su casa para finalizar su nueva póliza. Use los ejemplos a continuación como guía.</div>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto 0 auto;"><tr>
+<td bgcolor="rgba(255,255,255,0.15)" style="background-color:rgba(255,255,255,0.15);border-radius:20px;padding:6px 16px;">
+<span style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#ffffff;letter-spacing:0.3px;">● Acción Necesaria para Activar la Cobertura</span>
+</td></tr></table>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto 0 auto;"><tr>
+<td style="padding:0 4px;"><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#ffffff;background-color:rgba(255,255,255,0.12);padding:5px 12px;border-radius:10px;display:inline-block;">9 Fotos</span></td>
+<td style="padding:0 4px;"><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#ffffff;background-color:rgba(255,255,255,0.12);padding:5px 12px;border-radius:10px;display:inline-block;">~5 Min Total</span></td>
+<td style="padding:0 4px;"><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#ffffff;background-color:rgba(255,255,255,0.12);padding:5px 12px;border-radius:10px;display:inline-block;">Texto o Subir</span></td>
+</tr></table>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 3: GREETING -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:32px 32px 8px 32px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:18px;font-weight:700;color:#0f172a;">Hola {{CUSTOMER_FIRST_NAME}},</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;color:#475569;line-height:1.7;padding-top:14px;">Gracias por elegir Bill Layne Insurance y <strong style="color:#0f172a;">NC Grange Mutual</strong> para su nueva póliza de hogar. Para finalizar la suscripción, su compañía necesita <strong style="color:#0f172a;">9 fotos rápidas</strong> de su casa — interior y exterior.</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;color:#475569;line-height:1.7;padding-top:12px;">La mayoría de los clientes terminan esto en unos 5 minutos con su teléfono. Elija el método de envío más fácil para usted, luego siga las 9 fotos en esta guía.</div>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 3.5: POLICY DETAILS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:18px 32px 8px 32px;">
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f9ff" style="background-color:#f0f9ff;border:1px solid #bfdbfe;border-radius:10px;">
+<tr><td style="padding:18px 22px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#1e40af;padding-bottom:12px;">● Su Nueva Póliza</div>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td valign="top" style="width:24px;font-size:16px;line-height:1.4;padding-top:1px;">🏠</td>
+<td valign="top" style="padding-left:10px;padding-bottom:10px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Dirección de la Propiedad</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#0f172a;padding-top:3px;line-height:1.4;">{{POLICY_ADDRESS}}</div>
+</td>
+</tr>
+<tr>
+<td valign="top" style="width:24px;font-size:16px;line-height:1.4;padding-top:1px;">📋</td>
+<td valign="top" style="padding-left:10px;padding-bottom:10px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Número de Póliza</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#0f172a;padding-top:3px;line-height:1.4;">{{POLICY_NUMBER}}</div>
+</td>
+</tr>
+<tr>
+<td valign="top" style="width:24px;font-size:16px;line-height:1.4;padding-top:1px;">🛡️</td>
+<td valign="top" style="padding-left:10px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;">Compañía</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#0f172a;padding-top:3px;line-height:1.4;">NC Grange Mutual de Seguros</div>
+</td>
+</tr>
+</table>
+</td></tr>
+</table>
+
+</td></tr>
+</table>
+</td></tr>
+
+{{NOTES_BLOCK}}
+
+<!-- CARD 4: TWO SUBMISSION OPTIONS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:24px 32px 32px 32px;">
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#003f87;padding-bottom:6px;">● 2 Maneras Fáciles de Enviar</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:20px;font-weight:700;color:#1e293b;padding-bottom:18px;">Elija la Más Fácil para Usted</div>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td valign="top" style="width:50%;padding-right:8px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fffbeb" style="background-color:#fffbeb;border:2px solid #f59e0b;border-radius:10px;">
+<tr><td align="center" style="padding:18px 14px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#92400e;padding-bottom:6px;">📱 Opción 1 — Texto</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#92400e;padding-bottom:10px;">Envíe las fotos a:</div>
+<a href="sms:+13368279065" style="text-decoration:none;color:#003f87;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:20px;font-weight:800;color:#003f87;line-height:1.1;">(336) 827-9065</div>
+</a>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#78350f;padding-top:8px;line-height:1.4;">Incluya su nombre en<br>el mensaje</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:50%;padding-left:8px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#eff6ff" style="background-color:#eff6ff;border:2px solid #3b82f6;border-radius:10px;">
+<tr><td align="center" style="padding:18px 14px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#1e40af;padding-bottom:6px;">💻 Opción 2 — Subir</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#1e40af;padding-bottom:10px;">Visite en línea:</div>
+<a href="https://www.sendbilldocs.com?name={{CUSTOMER_FULL_NAME_ENC}}&email={{CUSTOMER_EMAIL_ENC}}&notes=NC%20Grange%20fotos%20de%20suscripci%C3%B3n%20-%20P%C3%B3liza%20{{POLICY_NUMBER_ENC}}&photos=9" style="text-decoration:none;color:#1d4ed8;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:18px;font-weight:800;color:#1d4ed8;line-height:1.1;">SendBillDocs.com</div>
+</a>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#1e40af;padding-top:8px;line-height:1.4;">Abra en su teléfono — toque,<br>capture y envíe</div>
+</td></tr>
+</table>
+</td>
+</tr>
+</table>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 5: 4-STEP PROCESS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fafafa" style="background-color:#fafafa;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:28px 32px;">
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#003f87;padding-bottom:6px;text-align:center;">● Cómo Funciona</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:20px;font-weight:700;color:#1e293b;padding-bottom:20px;text-align:center;">4 Pasos Sencillos</div>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">1</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Mire cada foto<br>de ejemplo</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">2</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Tome la misma<br>foto en su casa</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">3</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Envíe o suba<br>las 9 fotos</div>
+</td></tr>
+</table>
+</td>
+<td valign="top" style="width:25%;padding:0 5px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
+<tr><td align="center" style="padding:14px 8px 12px 8px;">
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 8px auto;"><tr>
+<td width="32" height="32" align="center" valign="middle" bgcolor="#003f87" style="width:32px;height:32px;background-color:#003f87;border-radius:8px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:800;color:#C8A84E;line-height:32px;">4</td>
+</tr></table>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;line-height:1.4;">Incluya su<br>nombre completo</div>
+</td></tr>
+</table>
+</td>
+</tr></table>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 6: PHOTO GRID HEADER -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:32px 32px 8px 32px;" align="center">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#003f87;padding-bottom:6px;">● Lo Que Necesitamos</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:24px;font-weight:700;color:#1e293b;line-height:1.2;">9 Fotos para Enviar</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#64748b;padding-top:8px;">Use estos ejemplos como guía — replique cada uno en su casa</div>
+<table cellpadding="0" cellspacing="0" border="0" width="60" align="center" style="margin:18px auto 0 auto;">
+<tr><td height="3" style="height:3px;background-color:#C8A84E;font-size:0;line-height:0;">&nbsp;</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+__PHOTO_CARDS__
+
+<!-- CARD 7: PHOTO TIPS -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:8px 32px 28px 32px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fefce8" style="background-color:#fefce8;border:1px solid #fde68a;border-radius:10px;">
+<tr><td style="padding:18px 22px;">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;font-weight:700;color:#78350f;padding-bottom:10px;">💡 Consejos para las Fotos</div>
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;Encienda todas las luces antes de tomar la foto</td></tr>
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;Aléjese para que toda el área quepa en el cuadro</td></tr>
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;Sin filtros — solo una foto normal de la cámara</td></tr>
+<tr><td style="padding:3px 0;font-family:'Inter',Arial,sans-serif;font-size:13px;color:#78350f;line-height:1.6;"><strong style="color:#92400e;">✓</strong> &nbsp;Sostenga el teléfono firme — fotos borrosas pueden necesitar ser retomadas</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 8: PDF NOTE -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:0 32px 28px 32px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f9ff" style="background-color:#f0f9ff;border:1px solid #bfdbfe;border-radius:10px;">
+<tr><td style="padding:18px 22px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td width="48" valign="top" style="padding-right:14px;">
+<table cellpadding="0" cellspacing="0" border="0" width="40" height="40" style="width:40px;height:40px;">
+<tr><td width="40" height="40" align="center" valign="middle" bgcolor="#003f87" style="width:40px;height:40px;background-color:#003f87;border-radius:8px;font-size:20px;line-height:40px;color:#ffffff;">📎</td></tr>
+</table>
+</td>
+<td valign="top">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:700;color:#0f172a;padding-bottom:4px;">PDF Imprimible Adjunto</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#475569;line-height:1.6;">También adjuntamos esta guía como PDF. Imprímala y úsela como lista de verificación mientras camina por su casa — así no se perderá ninguna de las 9 fotos.</div>
+</td>
+</tr></table>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- CARD 9: DUAL CTA -->
+<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td align="center" style="padding:8px 32px 28px 32px;">
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;color:#475569;line-height:1.6;padding-bottom:20px;text-align:center;">¿Necesita ayuda con las fotos o tiene una pregunta? Responda a este correo o comuníquese — estoy aquí para ayudar.</div>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px auto;">
+<tr><td bgcolor="#003f87" style="background-color:#003f87;border-radius:8px;">
+<a href="tel:3368351993" style="display:inline-block;padding:14px 32px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">📞 &nbsp;Llamar a Mi Agente &nbsp;·&nbsp; (336) 835-1993</a>
+</td></tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+<tr><td bgcolor="#ffffff" style="background-color:#ffffff;border:2px solid #003f87;border-radius:8px;">
+<a href="https://m.me/dollarbillagency" style="display:inline-block;padding:12px 32px;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:700;color:#003f87;text-decoration:none;">💬 &nbsp;Chatear en Facebook Messenger</a>
+</td></tr>
+</table>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:11px;color:#94a3b8;padding-top:10px;">Lun–Vie 9am–5pm &nbsp;·&nbsp; Respondemos en 1 hora hábil</div>
+
+<div style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#1e293b;line-height:1.6;padding-top:24px;text-align:center;">Gracias por enviarlas — una vez que tengamos las 9 fotos, su suscripción estará completa y su póliza asegurada.<br><br><strong>— Bill Layne</strong></div>
+
+</td></tr>
+</table>
+</td></tr>
+
+<!-- FOOTER -->
+<tr><td>
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fafafa" style="background-color:#fafafa;border-radius:0 0 16px 16px;border:1px solid #e2e8f0;border-top:none;">
+<tr><td style="padding:28px 24px;text-align:center;">
+
+<table cellpadding="0" cellspacing="0" border="0" width="80" align="center" style="margin:0 auto 20px auto;">
+<tr><td height="3" style="height:3px;background:linear-gradient(90deg,#003f87,#C8A84E);background-color:#C8A84E;font-size:0;line-height:0;">&nbsp;</td></tr>
+</table>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 14px auto;"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;">
+<img src="https://i.imgur.com/lxu9nfT.png" width="140" alt="Bill Layne Insurance Agency" style="display:block;width:140px;height:auto;">
+</td></tr></table>
+
+<p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;font-family:'Inter',Arial,sans-serif;">Bill Layne Insurance Agency</p>
+<p style="margin:0 0 2px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;">1283 N Bridge St &bull; Elkin, NC 28621</p>
+<p style="margin:0 0 2px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;">(336) 835-1993 &bull; <a href="mailto:Save@BillLayneInsurance.com" style="color:#003f87;text-decoration:none;">Save@BillLayneInsurance.com</a></p>
+<p style="margin:0 0 14px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;"><a href="https://www.BillLayneInsurance.com" style="color:#003f87;text-decoration:none;">www.BillLayneInsurance.com</a> &bull; Est. 2005</p>
+
+<p style="margin:0 0 14px 0;font-size:12px;color:#64748b;font-family:'Inter',Arial,sans-serif;">
+<a href="https://www.facebook.com/dollarbillagency" style="color:#003f87;text-decoration:none;font-weight:600;">Facebook</a>
+&nbsp;|&nbsp;
+<a href="https://www.youtube.com/@ncautoandhome" style="color:#003f87;text-decoration:none;font-weight:600;">YouTube</a>
+&nbsp;|&nbsp;
+<a href="https://www.instagram.com/ncautoandhome" style="color:#003f87;text-decoration:none;font-weight:600;">Instagram</a>
+&nbsp;|&nbsp;
+<a href="https://twitter.com/shopsavecompare" style="color:#003f87;text-decoration:none;font-weight:600;">X</a>
+</p>
+
+<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 14px auto;"><tr>
+<td bgcolor="#ffffff" style="background-color:#ffffff;padding:8px 14px;border-radius:20px;border:1px solid #e2e8f0;">
+<table cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle" style="padding-right:8px;"><img src="https://i.imgur.com/nDFmjxh.png" width="16" alt="Google" style="display:block;width:16px;height:16px;"></td>
+<td valign="middle" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;color:#0f172a;">4.9 ★★★★★ &nbsp;<span style="color:#64748b;font-weight:400;">Más de 100 reseñas en Google</span></td>
+</tr></table>
+</td></tr></table>
+
+<p style="margin:0 0 6px 0;font-size:11px;color:#64748b;font-family:'Inter',Arial,sans-serif;">Síganos en <a href="https://www.facebook.com/dollarbillagency" style="color:#003f87;text-decoration:none;font-weight:600;">Facebook</a> para consejos, actualizaciones y noticias locales.</p>
+
+<p style="margin:0 0 14px 0;font-size:11px;color:#64748b;font-family:'Inter',Arial,sans-serif;">¿Prefiere Messenger? <a href="https://m.me/dollarbillagency?text=S%C3%AD%2C%20env%C3%ADeme%20actualizaciones%20de%20p%C3%B3liza%20por%20Messenger" style="color:#003f87;text-decoration:none;font-weight:600;">Toque aquí para suscribirse</a> a actualizaciones de pólizas.</p>
+
+<p style="margin:0;font-size:11px;color:#94a3b8;font-family:'Inter',Arial,sans-serif;line-height:1.6;">Este correo fue enviado a {{CUSTOMER_EMAIL}} con respecto a su nueva póliza de hogar.<br><a href="mailto:Save@BillLayneInsurance.com?subject=Cancelar%20Suscripcion" style="color:#94a3b8;text-decoration:underline;">Cancelar Suscripción</a> &bull; &copy; 2026 Bill Layne Insurance Agency</p>
+
+</td></tr>
+</table>
+</td></tr>
+
+</table>
+</td></tr>
+</table>`;
+
+// ===========================================
+// PDF TEMPLATE — SPANISH
+// ===========================================
+const PDF_TEMPLATE_ES = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Guía de Fotos del Hogar — {{POLICYHOLDER_NAME}}</title>
+<style>
+@page { size: letter; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  width: 100%;
+  padding: 0.35in 0.45in;
+  color: #1e293b;
+  line-height: 1.2;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.toolbar {
+  position: fixed; top: 12px; right: 12px;
+  background: #003366; color: #fff;
+  padding: 8px 14px; border-radius: 8px;
+  font-size: 12px; display: flex; gap: 10px; align-items: center;
+  z-index: 999; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+}
+.toolbar button {
+  background: #FFC300; color: #003366; border: none;
+  padding: 6px 12px; border-radius: 5px;
+  font-weight: 700; font-size: 12px; cursor: pointer;
+  font-family: Arial, sans-serif;
+}
+.toolbar button:hover { background: #ffd633; }
+.toolbar button.close { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+@media print { .toolbar { display: none !important; } }
+
+.letterhead { display: table; width: 100%; padding-bottom: 7px; border-bottom: 2.5px solid #003366; margin-bottom: 10px; }
+.lh-left { display: table-cell; vertical-align: middle; }
+.lh-left img { height: 44px; }
+.lh-right { display: table-cell; vertical-align: middle; text-align: right; font-size: 8.5pt; color: #475569; line-height: 1.6; }
+.lh-right strong { color: #003366; font-size: 9.5pt; }
+.lh-right a { color: #2563eb; text-decoration: none; }
+
+.carrier-strip { display: table; width: 100%; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; margin-bottom: 8px; }
+.cs-left { display: table-cell; vertical-align: middle; }
+.cs-left img { height: 26px; }
+.cs-right { display: table-cell; vertical-align: middle; text-align: right; font-size: 8pt; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+.title-bar { background: #003366; border-radius: 7px; padding: 7px 16px; margin-bottom: 8px; }
+.title-bar h1 { font-size: 17pt; font-weight: 900; color: white; line-height: 1.1; text-align: center; }
+.title-bar h1 span { color: #FFC300; }
+.title-bar p { font-size: 9pt; color: rgba(255,255,255,0.75); text-align: center; margin-top: 3px; }
+
+.send-options { display: table; width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 7px; }
+.send-opt { display: table-cell; width: 50%; border-radius: 7px; padding: 8px 12px; vertical-align: middle; text-align: center; }
+.send-opt-text { background: #FFC300; border: 2px solid #d97706; }
+.send-opt-web { background: #eff6ff; border: 2px solid #93c5fd; }
+.so-label { font-size: 7.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1px; }
+.send-opt-text .so-label { color: #78350f; }
+.send-opt-web .so-label { color: #1e40af; }
+.so-value { font-size: 15pt; font-weight: 900; line-height: 1.2; }
+.send-opt-text .so-value { color: #003366; }
+.send-opt-web .so-value { color: #1d4ed8; }
+.so-hint { font-size: 7.5pt; margin-top: 1px; }
+.send-opt-text .so-hint { color: #92400e; }
+.send-opt-web .so-hint { color: #3b82f6; }
+
+.steps-row { display: table; width: 100%; border-collapse: separate; border-spacing: 5px 0; margin-bottom: 8px; }
+.step-cell { display: table-cell; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 5px; padding: 5px 6px; text-align: center; width: 25%; vertical-align: middle; }
+.sn { display: inline-block; background: #003366; color: #FFC300; font-size: 8pt; font-weight: 900; width: 17px; height: 17px; line-height: 17px; text-align: center; border-radius: 4px; vertical-align: middle; margin-right: 3px; }
+.st { font-size: 8pt; font-weight: 700; color: #003366; line-height: 1.25; }
+
+.grid { display: table; width: 100%; border-collapse: separate; border-spacing: 6px 6px; margin-bottom: 8px; }
+.grid-row { display: table-row; }
+.card { display: table-cell; width: 33.33%; border: 1.5px solid #cbd5e1; border-radius: 6px; overflow: hidden; vertical-align: top; background: white; }
+.card-img { position: relative; width: 100%; height: 108px; overflow: hidden; background: #e2e8f0; }
+.card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-num { position: absolute; top: 4px; left: 4px; background: #003366; color: #FFC300; font-size: 9pt; font-weight: 900; padding: 1px 8px; border-radius: 4px; }
+.card-ex { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,51,102,0.7); color: white; font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; padding: 2px 0; }
+.card-txt { padding: 4px 7px 5px; }
+.card-txt h3 { font-size: 9pt; font-weight: 900; color: #003366; line-height: 1.15; margin-bottom: 2px; }
+.card-txt p { font-size: 8pt; color: #475569; line-height: 1.3; }
+.card-txt p b { color: #b91c1c; }
+
+.tips { background: #fefce8; border: 1.5px solid #fde68a; border-radius: 5px; padding: 5px 12px; margin-bottom: 7px; font-size: 8pt; color: #78350f; line-height: 1.4; }
+.tips strong { color: #92400e; }
+
+.extra-info { display: table; width: 100%; background: #fffbeb; border: 2px solid #f59e0b; border-radius: 7px; margin-bottom: 8px; }
+.ei-icon { display: table-cell; width: 38px; vertical-align: middle; text-align: center; background: #f59e0b; color: white; font-size: 16pt; padding: 0; border-radius: 5px 0 0 5px; }
+.ei-content { display: table-cell; vertical-align: middle; padding: 6px 12px; }
+.ei-label { font-size: 7.5pt; font-weight: 900; color: #92400e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+.ei-text { font-size: 9.5pt; color: #78350f; line-height: 1.4; font-weight: 600; }
+
+.info-section { border: 2px solid #003366; border-radius: 7px; padding: 7px 14px 8px; margin-bottom: 6px; background: #f8fafc; }
+.info-title { font-size: 9.5pt; font-weight: 900; color: #003366; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid #cbd5e1; }
+.info-grid { display: table; width: 100%; border-collapse: separate; border-spacing: 16px 0; }
+.info-col { display: table-cell; width: 50%; vertical-align: top; }
+.info-field { margin-bottom: 7px; }
+.info-field:last-child { margin-bottom: 0; }
+.info-label { font-size: 7pt; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.info-data { font-size: 10pt; font-weight: 700; color: #003366; padding: 1px 0 3px 0; border-bottom: 1px solid #cbd5e1; min-height: 14px; }
+.info-data.empty { color: #cbd5e1; font-weight: 400; font-style: italic; }
+
+.footer { border-top: 2px solid #003366; padding-top: 6px; text-align: center; font-size: 8pt; color: #64748b; line-height: 1.6; }
+.footer strong { color: #003366; }
+.footer a { color: #2563eb; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <span>📄 Listo para imprimir</span>
+  <button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+  <button class="close" onclick="window.close()">Cerrar</button>
+</div>
+
+<div class="letterhead">
+  <div class="lh-left">
+    <img src="https://i.imgur.com/lxu9nfT.png" alt="Bill Layne Insurance Agency">
+  </div>
+  <div class="lh-right">
+    <strong>Bill Layne Insurance Agency</strong><br>
+    1283 N Bridge St, Elkin, NC 28621<br>
+    Teléfono: <strong>(336) 835-1993</strong> &nbsp;|&nbsp; <a href="https://www.BillLayneInsurance.com">www.BillLayneInsurance.com</a>
+  </div>
+</div>
+
+<div class="carrier-strip">
+  <div class="cs-left">
+    <img src="https://i.imgur.com/Fesnkng.png" alt="NC Grange Mutual">
+  </div>
+  <div class="cs-right">Suscripción Nueva de Hogar</div>
+</div>
+
+<div class="title-bar">
+  <h1>Guía de Fotos del <span>Seguro de Hogar</span></h1>
+  <p>Necesitamos 9 fotos de su casa para terminar de configurar su póliza. Use los ejemplos a continuación como guía.</p>
+</div>
+
+{{NOTES_BLOCK}}
+
+<div class="send-options">
+  <div class="send-opt send-opt-text">
+    <div class="so-label">&#128241; Opción 1 — Envíe sus Fotos por Texto a</div>
+    <div class="so-value">(336) 827-9065</div>
+    <div class="so-hint">Incluya su nombre en el mensaje</div>
+  </div>
+  <div class="send-opt send-opt-web">
+    <div class="so-label">&#128187; Opción 2 — Suba en Línea a</div>
+    <div class="so-value">www.SendBillDocs.com</div>
+    <div class="so-hint">Abra en su teléfono — toque, capture y envíe</div>
+  </div>
+</div>
+
+<div class="steps-row">
+  <div class="step-cell"><span class="sn">1</span> <span class="st">Mire cada foto<br>de ejemplo</span></div>
+  <div class="step-cell"><span class="sn">2</span> <span class="st">Tome la misma foto<br>en su casa</span></div>
+  <div class="step-cell"><span class="sn">3</span> <span class="st">Envíe o suba<br>las 9 fotos</span></div>
+  <div class="step-cell"><span class="sn">4</span> <span class="st">Incluya su<br>nombre completo</span></div>
+</div>
+
+<div class="grid">
+  <div class="grid-row">
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/HC2yn6G.jpeg" alt="Cocina"><div class="card-num">1</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Cocina</h3><p>Párese en la entrada. Capture la estufa, el refrigerador y los gabinetes en una sola foto.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/LmrRRFq.jpeg" alt="Sala"><div class="card-num">2</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Sala</h3><p>Párese en una esquina para que toda la sala quepa en una foto.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/wGZfagl.jpeg" alt="Baño"><div class="card-num">3</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Baño</h3><p>Muestre la tina o ducha, el lavabo y el inodoro en una foto amplia.</p></div></div>
+  </div>
+  <div class="grid-row">
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/yY4Xcbo.jpeg" alt="Caja de Breakers"><div class="card-num">4</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Caja de Breakers</h3><p><b>Abra primero la puerta del panel.</b> Tome una foto que muestre todos los breakers.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/G6lFX7G.jpeg" alt="Calentador de Agua"><div class="card-num">5</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Calentador de Agua</h3><p>Capture toda la unidad. <b>Asegúrese de que la etiqueta de edad/marca sea visible.</b></p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/qi6MPc8.jpeg" alt="Termostato"><div class="card-num">6</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Termostato</h3><p>Acérquese lo suficiente para que podamos leer la marca en la pantalla.</p></div></div>
+  </div>
+  <div class="grid-row">
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/yKXsPdq.jpeg" alt="Debajo del Lavabo de la Cocina"><div class="card-num">7</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Debajo del Lavabo de la Cocina</h3><p><b>Abra las puertas del gabinete.</b> Muestre las tuberías debajo.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/jY7HV4e.jpeg" alt="Debajo del Lavabo del Baño"><div class="card-num">8</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Debajo del Lavabo del Baño</h3><p><b>Abra las puertas del gabinete.</b> Muestre las tuberías debajo.</p></div></div>
+    <div class="card"><div class="card-img"><img src="https://i.imgur.com/2kz7rAQ.jpeg" alt="Cobertizo"><div class="card-num">9</div><div class="card-ex">Foto de Ejemplo</div></div><div class="card-txt"><h3>Cobertizo / Bodega</h3><p>Cualquier cobertizo, granero o garaje desde afuera. <b>¿No tiene cobertizo? Omita esta.</b></p></div></div>
+  </div>
+</div>
+
+<div class="tips">
+  <strong>&#128161; Consejos para las Fotos:</strong> &nbsp;
+  Encienda todas sus luces &nbsp;&#8226;&nbsp;
+  Aléjese para que toda el área quepa en el cuadro &nbsp;&#8226;&nbsp;
+  Sin filtros — solo una foto normal de la cámara &nbsp;&#8226;&nbsp;
+  <strong>¿Preguntas? Llame al (336) 835-1993</strong>
+</div>
+
+<div class="info-section">
+  <div class="info-title">&#128196; Información de la Póliza</div>
+  <div class="info-grid">
+    <div class="info-col">
+      <div class="info-field">
+        <div class="info-label">Nombre del Asegurado</div>
+        <div class="info-data {{NAME_EMPTY}}">{{POLICYHOLDER_NAME}}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">Dirección de la Propiedad</div>
+        <div class="info-data {{ADDRESS_EMPTY}}">{{PROPERTY_ADDRESS}}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">Ciudad / Estado / Código Postal</div>
+        <div class="info-data {{CITY_EMPTY}}">{{PROPERTY_CITY}}</div>
+      </div>
+    </div>
+    <div class="info-col">
+      <div class="info-field">
+        <div class="info-label">Compañía de Seguros</div>
+        <div class="info-data">NC Grange Mutual</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">Número de Póliza</div>
+        <div class="info-data {{POLICY_EMPTY}}">{{POLICY_NUMBER}}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">Número de Teléfono</div>
+        <div class="info-data {{PHONE_EMPTY}}">{{PHONE_NUMBER}}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <strong>Bill Layne Insurance Agency</strong> &nbsp;|&nbsp;
+  1283 N Bridge St, Elkin, NC 28621 &nbsp;|&nbsp;
+  <strong>(336) 835-1993</strong> &nbsp;|&nbsp;
+  <a href="mailto:Save@BillLayneInsurance.com">Save@BillLayneInsurance.com</a> &nbsp;|&nbsp;
+  <a href="https://www.BillLayneInsurance.com">www.BillLayneInsurance.com</a>
+</div>
+
+<script>
+window.addEventListener('load', function() {
+  setTimeout(function() { window.print(); }, 700);
+});
+<\/script>
+
+</body>
+</html>`;
+
+// ===========================================
+// RENDER FUNCTION
+// ===========================================
+// ===========================================
+// NOTES BLOCK BUILDERS — add the additional-info banner
+// to email and PDF only when notes field has content
+// ===========================================
+function buildEmailNotesHtml(notes, lang) {
+  if (!notes || !notes.trim()) return '';
+  const isEs = lang === 'es';
+  const label = isEs ? 'También Necesitamos' : 'Also Needed From You';
+  const safe = escapeHtml(notes.trim()).replace(/\n/g, '<br>');
+
+  return `<tr><td style="padding-bottom:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f0;border-top:none;border-bottom:none;">
+<tr><td style="padding:0 32px 18px 32px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#fffbeb" style="background-color:#fffbeb;border:2px solid #fbbf24;border-radius:10px;">
+<tr><td style="padding:16px 20px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td width="48" valign="top" style="padding-right:14px;">
+<table cellpadding="0" cellspacing="0" border="0" width="40" height="40" style="width:40px;height:40px;">
+<tr><td width="40" height="40" align="center" valign="middle" bgcolor="#f59e0b" style="width:40px;height:40px;background-color:#f59e0b;border-radius:8px;font-size:20px;line-height:40px;color:#ffffff;">📝</td></tr>
+</table>
+</td>
+<td valign="top">
+<div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:1.2px;padding-bottom:4px;">${label}</div>
+<div style="font-family:'Inter',Arial,sans-serif;font-size:14px;color:#78350f;line-height:1.6;font-weight:600;">${safe}</div>
+</td>
+</tr></table>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>`;
+}
+
+function buildPdfNotesHtml(notes, lang) {
+  if (!notes || !notes.trim()) return '';
+  const isEs = lang === 'es';
+  const label = isEs ? 'También Necesitamos' : 'Also Needed From You';
+  const safe = escapeHtml(notes.trim()).replace(/\n/g, '<br>');
+
+  return `<div class="extra-info"><div class="ei-icon">📝</div><div class="ei-content"><div class="ei-label">${label}</div><div class="ei-text">${safe}</div></div></div>`;
+}
+
+function renderEmail() {
+  const firstName = document.getElementById('firstName').value.trim();
+  const lastName = document.getElementById('lastName').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const policy = document.getElementById('policy').value.trim();
+  const notes = document.getElementById('notes').value.trim();
+
+  // Display values (with placeholder fallback for empty)
+  const firstNameDisplay = firstName || '<span class="placeholder-empty">[First Name]</span>';
+  const fullNameDisplay = (firstName + (lastName ? ' ' + lastName : '')).trim() || '<span class="placeholder-empty">[Customer Name]</span>';
+  const emailDisplay = email || '<span class="placeholder-empty">[customer@email.com]</span>';
+  const addressDisplay = address || '<span class="placeholder-empty">[Property Address]</span>';
+  const policyDisplay = policy || '<span class="placeholder-empty">[Policy Number]</span>';
+
+  // URL-encoded values for SendBillDocs link
+  const fullNameEnc = encodeURIComponent((firstName + (lastName ? ' ' + lastName : '')).trim());
+  const emailEnc = encodeURIComponent(email);
+  const policyEnc = encodeURIComponent(policy);
+
+  // Build photo cards and notes block
+  const photoCards = buildPhotoCards();
+  const notesBlock = buildEmailNotesHtml(notes, 'en');
+
+  // Replace merge fields
+  let html = EMAIL_TEMPLATE
+    .replaceAll('__PHOTO_CARDS__', photoCards)
+    .replaceAll('{{NOTES_BLOCK}}', notesBlock)
+    .replaceAll('{{CUSTOMER_FIRST_NAME}}', firstNameDisplay)
+    .replaceAll('{{CUSTOMER_FULL_NAME}}', fullNameDisplay)
+    .replaceAll('{{CUSTOMER_EMAIL}}', emailDisplay)
+    .replaceAll('{{POLICY_ADDRESS}}', addressDisplay)
+    .replaceAll('{{POLICY_NUMBER}}', policyDisplay)
+    .replaceAll('{{CUSTOMER_FULL_NAME_ENC}}', fullNameEnc)
+    .replaceAll('{{CUSTOMER_EMAIL_ENC}}', emailEnc)
+    .replaceAll('{{POLICY_NUMBER_ENC}}', policyEnc);
+
+  document.getElementById('email-preview').innerHTML = html;
+}
+
+// ===========================================
+// CLIPBOARD — copy styled HTML
+// ===========================================
+
+// Build the final email HTML for COPY (no placeholder boxes), in the given language
+function buildEmailHtmlForCopy(lang) {
+  const isEs = lang === 'es';
+  const template = isEs ? EMAIL_TEMPLATE_ES : EMAIL_TEMPLATE;
+  const photos = isEs ? PHOTOS_ES : PHOTOS;
+  const labelPrefix = isEs ? 'FOTO' : 'PHOTO';
+
+  const firstName = document.getElementById('firstName').value.trim();
+  const lastName = document.getElementById('lastName').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const policy = document.getElementById('policy').value.trim();
+  const notes = document.getElementById('notes').value.trim();
+  const fullName = (firstName + (lastName ? ' ' + lastName : '')).trim();
+
+  const photoCards = buildPhotoCards(photos, labelPrefix);
+  const notesBlock = buildEmailNotesHtml(notes, lang);
+
+  return template
+    .replaceAll('__PHOTO_CARDS__', photoCards)
+    .replaceAll('{{NOTES_BLOCK}}', notesBlock)
+    .replaceAll('{{CUSTOMER_FIRST_NAME}}', firstName)
+    .replaceAll('{{CUSTOMER_FULL_NAME}}', fullName)
+    .replaceAll('{{CUSTOMER_EMAIL}}', email)
+    .replaceAll('{{POLICY_ADDRESS}}', address)
+    .replaceAll('{{POLICY_NUMBER}}', policy)
+    .replaceAll('{{CUSTOMER_FULL_NAME_ENC}}', encodeURIComponent(fullName))
+    .replaceAll('{{CUSTOMER_EMAIL_ENC}}', encodeURIComponent(email))
+    .replaceAll('{{POLICY_NUMBER_ENC}}', encodeURIComponent(policy));
+}
+
+async function copyEmail(lang) {
+  lang = lang || 'en';
+  const html = buildEmailHtmlForCopy(lang);
+
+  // Build plain-text version via temp DOM
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  const plainText = tempDiv.innerText;
+
+  try {
+    const item = new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([plainText], { type: 'text/plain' })
+    });
+    await navigator.clipboard.write([item]);
+    return true;
+  } catch (e) {
+    console.warn('Modern Clipboard API failed, using fallback:', e);
+    try {
+      // Fallback — inject HTML into hidden contentEditable div, select, exec copy
+      const exposed = document.createElement('div');
+      exposed.contentEditable = 'true';
+      exposed.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+      exposed.innerHTML = html;
+      document.body.appendChild(exposed);
+
+      const range = document.createRange();
+      range.selectNodeContents(exposed);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const success = document.execCommand('copy');
+      selection.removeAllRanges();
+      document.body.removeChild(exposed);
+      return success;
+    } catch (e2) {
+      console.error('Fallback copy also failed:', e2);
+      return false;
+    }
+  }
+}
+
+// ===========================================
+// GMAIL COMPOSE LAUNCHER
+// ===========================================
+function buildGmailUrl(lang) {
+  lang = lang || 'en';
+  const email = document.getElementById('email').value.trim();
+  const subjectInput = document.getElementById('subject').value.trim();
+  // Spanish always gets the Spanish subject (user can edit in Gmail compose if needed)
+  const subject = lang === 'es'
+    ? '9 fotos rápidas para su nueva póliza'
+    : (subjectInput || '9 quick photos for your new policy');
+  const bcc = document.getElementById('bcc').value.trim();
+
+  const params = new URLSearchParams({
+    view: 'cm',
+    fs: '1',
+    to: email,
+    su: subject
+  });
+  if (bcc) params.set('bcc', bcc);
+
+  return 'https://mail.google.com/mail/?' + params.toString();
+}
+
+function openGmail(lang) {
+  const url = buildGmailUrl(lang);
+  window.open(url, '_blank', 'noopener');
+}
+
+// ===========================================
+// SYNC — copy + open
+// ===========================================
+async function syncToGmail(lang) {
+  lang = lang || 'en';
+  const email = document.getElementById('email').value.trim();
+  if (!email) {
+    const msg = lang === 'es'
+      ? 'Por favor ingrese el correo del cliente primero'
+      : 'Please enter the customer email first';
+    showToast(msg, 'error');
+    document.getElementById('email').focus();
+    return;
+  }
+
+  // Open Gmail FIRST (must be in user gesture path before async clipboard call,
+  // otherwise some browsers block the popup)
+  const url = buildGmailUrl(lang);
+  window.open(url, '_blank', 'noopener');
+
+  // Then copy the email
+  const copied = await copyEmail(lang);
+
+  if (copied) {
+    const msg = lang === 'es'
+      ? '✓ ¡Correo en español copiado! Cambie a Gmail y pegue con ⌘V / Ctrl+V'
+      : '✓ Email copied! Switch to Gmail tab and paste with ⌘V / Ctrl+V';
+    showToast(msg, 'success');
+  } else {
+    const msg = lang === 'es'
+      ? 'Gmail abierto, pero la copia falló — intente el botón Copiar'
+      : 'Gmail opened, but copy failed — try the Copy Email button';
+    showToast(msg, 'error');
+  }
+}
+
+// ===========================================
+// TOAST
+// ===========================================
+let toastTimer = null;
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast toast-' + type + ' show';
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.className = 'toast';
+  }, 4500);
+}
+
+// ===========================================
+// PRINT PDF — opens letterhead-style printable in new window
+// ===========================================
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatPhoneNumber(raw) {
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return '(' + digits.slice(1, 4) + ') ' + digits.slice(4, 7) + '-' + digits.slice(7);
+  }
+  return raw;
+}
+
+function splitAddress(full) {
+  // Split on first comma — line 1 = street, line 2 = city/state/zip
+  if (!full) return { street: '', cityStateZip: '' };
+  const idx = full.indexOf(',');
+  if (idx === -1) return { street: full.trim(), cityStateZip: '' };
+  return {
+    street: full.slice(0, idx).trim(),
+    cityStateZip: full.slice(idx + 1).trim()
+  };
+}
+
+function renderPdfHtml(lang) {
+  lang = lang || 'en';
+  const firstName = document.getElementById('firstName').value.trim();
+  const lastName = document.getElementById('lastName').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const policy = document.getElementById('policy').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const notes = document.getElementById('notes').value.trim();
+
+  const fullName = (firstName + (lastName ? ' ' + lastName : '')).trim();
+  const { street, cityStateZip } = splitAddress(address);
+  const formattedPhone = formatPhoneNumber(phone);
+
+  const template = lang === 'es' ? PDF_TEMPLATE_ES : PDF_TEMPLATE;
+  const notesBlock = buildPdfNotesHtml(notes, lang);
+
+  return template
+    .replaceAll('{{NOTES_BLOCK}}', notesBlock)
+    .replaceAll('{{POLICYHOLDER_NAME}}', escapeHtml(fullName) || '&nbsp;')
+    .replaceAll('{{NAME_EMPTY}}', fullName ? '' : 'empty')
+    .replaceAll('{{PROPERTY_ADDRESS}}', escapeHtml(street) || '&nbsp;')
+    .replaceAll('{{ADDRESS_EMPTY}}', street ? '' : 'empty')
+    .replaceAll('{{PROPERTY_CITY}}', escapeHtml(cityStateZip) || '&nbsp;')
+    .replaceAll('{{CITY_EMPTY}}', cityStateZip ? '' : 'empty')
+    .replaceAll('{{POLICY_NUMBER}}', escapeHtml(policy) || '&nbsp;')
+    .replaceAll('{{POLICY_EMPTY}}', policy ? '' : 'empty')
+    .replaceAll('{{PHONE_NUMBER}}', escapeHtml(formattedPhone) || '&nbsp;')
+    .replaceAll('{{PHONE_EMPTY}}', formattedPhone ? '' : 'empty');
+}
+
+function printPDF(lang) {
+  lang = lang || 'en';
+  const html = renderPdfHtml(lang);
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    const msg = lang === 'es'
+      ? 'Pop-up bloqueado — permita pop-ups para esta página'
+      : 'Pop-up blocked — allow pop-ups for this page';
+    showToast(msg, 'error');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+
+  const msg = lang === 'es'
+    ? '✓ PDF en español abierto — el diálogo de impresión aparecerá en un momento'
+    : '✓ PDF opened — print dialog will appear in a moment';
+  showToast(msg, 'success');
+}
+
+// ===========================================
+// SPANISH BUNDLE — opens Gmail compose + PDF window + copies email,
+// all in Spanish, in a single user-gesture click
+// ===========================================
+async function syncSpanishBundle() {
+  const email = document.getElementById('email').value.trim();
+  if (!email) {
+    showToast('Por favor ingrese el correo del cliente primero', 'error');
+    document.getElementById('email').focus();
+    return;
+  }
+
+  // ---- SYNCHRONOUS PHASE — both window.open calls must happen here,
+  // before any await, or the second popup will be blocked by the browser ----
+
+  // 1. Open Gmail compose with Spanish subject
+  const gmailUrl = buildGmailUrl('es');
+  window.open(gmailUrl, '_blank', 'noopener');
+
+  // 2. Open Spanish PDF window and write content
+  const pdfHtml = renderPdfHtml('es');
+  const pdfWindow = window.open('', '_blank');
+  if (pdfWindow) {
+    pdfWindow.document.open();
+    pdfWindow.document.write(pdfHtml);
+    pdfWindow.document.close();
+  }
+
+  // ---- ASYNC PHASE — clipboard copy ----
+  const copied = await copyEmail('es');
+
+  // ---- Toast feedback ----
+  if (copied && pdfWindow) {
+    showToast('✓ ¡Listo! Gmail + PDF abiertos. Pegue el correo con ⌘V / Ctrl+V', 'success');
+  } else if (copied && !pdfWindow) {
+    showToast('Correo copiado y Gmail abierto, pero el PDF fue bloqueado — permita pop-ups', 'error');
+  } else if (!copied && pdfWindow) {
+    showToast('Gmail y PDF abiertos, pero la copia falló — use el botón Copy Email', 'error');
+  } else {
+    showToast('Algo salió mal — revise los pop-ups y vuelva a intentar', 'error');
+  }
+}
+
+// ===========================================
+// RESET
+// ===========================================
+function resetForm() {
+  if (!confirm('Clear all customer details and reset the form?')) return;
+  ['firstName', 'lastName', 'email', 'address', 'policy', 'phone', 'notes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('subject').value = '9 quick photos for your new policy';
+  document.getElementById('bcc').value = 'Save@BillLayneInsurance.com';
+  renderEmail();
+  document.getElementById('firstName').focus();
+  showToast('Form reset', 'info');
+}
+
+// ===========================================
+// INIT
+// ===========================================
+document.addEventListener('DOMContentLoaded', () => {
+  renderEmail();
+
+  ['firstName', 'lastName', 'email', 'address', 'policy', 'notes'].forEach(id => {
+    document.getElementById(id).addEventListener('input', renderEmail);
+  });
+
+  document.getElementById('syncBtn').addEventListener('click', () => syncToGmail('en'));
+  document.getElementById('printBtn').addEventListener('click', () => printPDF('en'));
+  document.getElementById('spanishBtn').addEventListener('click', syncSpanishBundle);
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    const copied = await copyEmail('en');
+    showToast(copied ? '✓ Email copied to clipboard' : 'Copy failed — try again', copied ? 'success' : 'error');
+  });
+  document.getElementById('resetBtn').addEventListener('click', resetForm);
+
+  // Submit form on Enter shouldn't refresh
+  document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') e.preventDefault();
+    });
+  });
+});
+</script>
+
+</body>
+</html>
