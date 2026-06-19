@@ -328,47 +328,45 @@ const ProgramLauncher: React.FC<ProgramLauncherProps> = ({ addToast }) => {
           </div>
 
           {(!isMobileView || expandedCategories[group.category]) && (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 lg:grid-cols-2">
               {group.items.map((program) => (
                 <article
                   key={program.id}
-                  className="overflow-hidden rounded-[1.2rem] border border-slate-200/80 bg-white/90 shadow-[0_20px_60px_-45px_rgba(15,23,42,0.8)] transition hover:-translate-y-1 hover:border-[#0076d3]/40 hover:shadow-xl sm:rounded-[1.35rem]"
+                  className="group overflow-hidden rounded-[1rem] border border-slate-200/80 bg-white/90 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.8)] transition hover:border-[#0076d3]/40 hover:shadow-lg"
                 >
-                  <div className={`h-2 bg-gradient-to-r ${program.accent}`}></div>
-                  <div className="p-4">
-                    <div className="mb-4 flex items-start gap-3 sm:justify-between">
-                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] bg-gradient-to-br ${program.accent} text-white shadow-lg`}>
-                        <i className={`${program.icon} text-base`}></i>
-                      </div>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
-                        {program.note}
-                      </span>
+                  <div className={`h-1.5 bg-gradient-to-r ${program.accent}`}></div>
+                  <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.9rem] bg-gradient-to-br ${program.accent} text-white shadow-md`}>
+                      <i className={`${program.icon} text-base`}></i>
                     </div>
 
-                    <h4 className="font-outfit text-lg font-black tracking-tight text-slate-900 sm:text-xl">
-                      {program.title}
-                    </h4>
-                    <p className="mt-2 text-[13px] leading-5 text-slate-500 sm:text-sm">{program.description}</p>
-
-                    <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        {program.targetType === 'web' ? 'Live link' : 'Local entry'}
-                      </p>
-                      <p className="mt-2 break-all text-xs leading-5 text-slate-500">
-                        {isHostedDashboard && program.hostedTarget
-                          ? program.hostedTarget
-                          : program.targetType === 'web'
-                            ? program.target
-                            : displayPath(program.target)}
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <h4 className="font-outfit text-base font-black tracking-tight text-slate-900">
+                          {program.title}
+                        </h4>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
+                          {program.note}
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
+                        {program.description}
                       </p>
                     </div>
 
                     <button
                       onClick={() => openProgram(program)}
-                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#003f87]"
+                      title={
+                        isHostedDashboard && program.hostedTarget
+                          ? program.hostedTarget
+                          : program.targetType === 'web'
+                            ? program.target
+                            : displayPath(program.target)
+                      }
+                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-[#003f87] sm:w-auto"
                     >
                       <i className="fa-solid fa-arrow-up-right-from-square"></i>
-                      Open Tool
+                      Open
                     </button>
                   </div>
                 </article>
