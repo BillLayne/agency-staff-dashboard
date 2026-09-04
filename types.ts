@@ -1,5 +1,5 @@
 
-export type SearchMode = 'agency' | 'web' | 'realestate' | 'people' | 'onedrive';
+export type SearchMode = 'agency' | 'web' | 'realestate' | 'people' | 'onedrive' | 'contacts';
 
 export interface Portal {
   id: string;

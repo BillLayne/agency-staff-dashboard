@@ -21,6 +21,18 @@ interface ProgramEntry {
 
 const PROGRAMS: ProgramEntry[] = [
   {
+    id: 'late-pay',
+    title: 'Late Pay',
+    category: 'Operations',
+    description: 'Open the late-payment text manager for customer payment reminders and follow-up.',
+    target: 'https://late-pay-text-manager-gemini.bill-7e3.workers.dev/',
+    hostedTarget: 'https://late-pay-text-manager-gemini.bill-7e3.workers.dev/',
+    icon: 'fa-solid fa-clock-rotate-left',
+    accent: 'from-amber-700 to-orange-500',
+    note: 'Payment follow-up',
+    targetType: 'web',
+  },
+  {
     id: 'sms-command-center',
     title: 'SMS Command Center',
     category: 'Operations',
@@ -64,6 +76,18 @@ const PROGRAMS: ProgramEntry[] = [
     icon: 'fa-solid fa-file-lines',
     accent: 'from-emerald-700 to-cyan-500',
     note: 'Hosted in dashboard',
+    targetType: 'web',
+  },
+  {
+    id: 'digital-cards',
+    title: 'Digital Cards',
+    category: 'Documents & Forms',
+    description: 'Open the digital insurance card dashboard for creating and managing customer cards.',
+    target: 'https://cards.billlayneinsurance.com/cards-dashboard',
+    hostedTarget: 'https://cards.billlayneinsurance.com/cards-dashboard',
+    icon: 'fa-solid fa-address-card',
+    accent: 'from-indigo-700 to-cyan-500',
+    note: 'Digital card dashboard',
     targetType: 'web',
   },
   {
@@ -135,6 +159,18 @@ const PROGRAMS: ProgramEntry[] = [
     icon: 'fa-solid fa-images',
     accent: 'from-fuchsia-700 to-indigo-500',
     note: 'Hosted in dashboard',
+    targetType: 'web',
+  },
+  {
+    id: 'pdf-creator',
+    title: 'PDF Creator',
+    category: 'Documents & Forms',
+    description: 'Open the agency PDF tools workspace for creating and editing PDF documents.',
+    target: 'https://www.billlayneinsurance.com/pdf-tools/',
+    hostedTarget: 'https://www.billlayneinsurance.com/pdf-tools/',
+    icon: 'fa-solid fa-file-pdf',
+    accent: 'from-red-700 to-rose-500',
+    note: 'Agency PDF tools',
     targetType: 'web',
   },
   {

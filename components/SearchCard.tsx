@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { SearchMode } from '../types';
 import { MODE_META, NC_COUNTY_GIS_DATA, DEFAULT_INSURANCE_PORTALS } from '../constants';
 import Modal from './Modal';
+import ContactLookup from './ContactLookup';
 import { GoogleGenAI } from "@google/genai";
 
 interface SearchCardProps {
@@ -119,6 +120,7 @@ const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch
               case 'h': newMode = 'realestate'; modeName = 'Real Estate'; break;
               case 'p': newMode = 'people'; modeName = 'People Search'; break;
               case 'f': newMode = 'onedrive'; modeName = 'Client Folder'; break;
+              case 'c': newMode = 'contacts'; modeName = 'Contact Numbers'; break;
           }
           if (newMode) {
               e.preventDefault();
@@ -136,6 +138,11 @@ const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch
     if (!query.trim()) {
       addToast('Please enter a search term', 'warning');
       inputRef.current?.focus();
+      return;
+    }
+    if (mode === 'contacts') {
+      onSearch();
+      addToast('Saved company contact matches are shown below.', 'info');
       return;
     }
     onSearch();
@@ -527,6 +534,7 @@ Return ONLY a JSON object in this exact shape:
     { mode: 'realestate', icon: 'fa-solid fa-house', label: 'Real Estate', shortcut: 'Alt + H' },
     { mode: 'people', icon: 'fa-solid fa-user', label: 'People', shortcut: 'Alt + P' },
     { mode: 'onedrive', icon: 'fa-brands fa-google-drive', label: 'Client Folder', shortcut: 'Alt + F' },
+    { mode: 'contacts', icon: 'fa-solid fa-address-book', label: 'Contact Numbers', shortcut: 'Alt + C' },
   ];
 
   return (
@@ -631,6 +639,10 @@ Return ONLY a JSON object in this exact shape:
               ))}
           </div>
         </div>
+
+        {mode === 'contacts' && (
+          <ContactLookup query={query} onQueryChange={setQuery} addToast={addToast} />
+        )}
         
         <div className={`relative z-10 grid grid-cols-2 gap-3 md:grid-cols-4 ${mode === 'realestate' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
           <button onClick={handleSearch} className="col-span-2 w-full rounded-[22px] bg-gradient-to-br from-slate-900 to-slate-800 py-4 text-white shadow-2xl transition-all hover:scale-[1.01] hover:shadow-button-glow active:scale-95 dark:from-primary dark:to-primary-light md:col-span-4 lg:col-span-1 font-black flex flex-col items-center justify-center gap-2 group min-h-[86px] sm:min-h-24">

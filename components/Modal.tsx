@@ -6,9 +6,10 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  maxWidthClass?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidthClass = 'max-w-md' }) => {
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -31,7 +32,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
       onClick={onClose}
     >
       <div
-        className="bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-xl shadow-2xl w-full max-w-md p-6 animate-fade-in-up"
+        className={`bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-xl shadow-2xl w-full ${maxWidthClass} p-6 animate-fade-in-up`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
