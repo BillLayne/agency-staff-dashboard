@@ -3,3 +3,6 @@ dist
 .wrangler
 .env
 .env.*
+.dev.vars
+output/
+.playwright-cli/

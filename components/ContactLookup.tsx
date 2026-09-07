@@ -1,716 +1,283 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Modal from './Modal';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import {
-  COMPANY_CONTACTS,
-  findCompanyContacts,
-  normalizeCompanyName,
-  type CompanyContact,
-  type ContactDetail,
-  type ContactDetailKind,
-} from '../data/carrierContacts';
+import { useCompanyContacts } from '../hooks/useCompanyContacts';
+import { CONTACT_LIMITS, companyKey, detailHref, detailsMatch, type ManualContactEntry } from '../services/contactDirectory';
+import { findCompanyContacts, type ContactDetail, type ContactDetailKind } from '../data/carrierContacts';
 
 interface ContactLookupProps {
   query: string;
   onQueryChange: (query: string) => void;
   addToast: (message: string, type?: 'success' | 'warning' | 'danger' | 'info') => void;
 }
-
-interface ManualContactEntry {
-  id: string;
-  company: string;
-  kind: ContactDetailKind;
-  label: string;
-  value: string;
-  createdAt: number;
-  replacesDetail?: ContactDetail;
-}
-
-interface ManualContactForm {
-  company: string;
-  kind: ContactDetailKind;
-  label: string;
-  value: string;
-}
-
-interface EditingDetail {
-  entryId?: string;
-  originalDetail: ContactDetail;
-  currentDetail: ContactDetail;
-}
-
-const MANUAL_CONTACTS_STORAGE_KEY = 'staff-dashboard-manual-company-contacts';
-
-const DEFAULT_LABELS: Record<ContactDetailKind, string> = {
-  phone: 'Customer service',
-  fax: 'Fax',
-  email: 'Email',
-  website: 'Website',
-};
-
-const EMPTY_MANUAL_FORM: ManualContactForm = {
-  company: '',
-  kind: 'phone',
-  label: DEFAULT_LABELS.phone,
-  value: '',
-};
-
-const isManualContactEntry = (value: unknown): value is ManualContactEntry => {
-  if (!value || typeof value !== 'object') return false;
-  const entry = value as Partial<ManualContactEntry>;
-  return typeof entry.id === 'string'
-    && typeof entry.company === 'string'
-    && ['phone', 'fax', 'email', 'website'].includes(entry.kind || '')
-    && typeof entry.label === 'string'
-    && typeof entry.value === 'string'
-    && typeof entry.createdAt === 'number';
-};
-
-const detailHref = (detail: ContactDetail) => {
-  if (detail.kind === 'phone') return `tel:${detail.value.replace(/[^\d+]/g, '')}`;
-  if (detail.kind === 'email') return `mailto:${detail.value}`;
-  if (detail.kind === 'website') {
-    return detail.value.startsWith('http') ? detail.value : `https://${detail.value}`;
-  }
-  return null;
-};
-
-const detailIcon: Record<ContactDetailKind, string> = {
-  phone: 'fa-phone',
-  fax: 'fa-fax',
-  email: 'fa-envelope',
-  website: 'fa-globe',
-};
-
-const mobileDetailLabel = (label: string) =>
-  label === 'Workers comp phone' ? 'WC phone' : label;
-
-const detailsMatch = (left: ContactDetail, right: ContactDetail) =>
-  left.kind === right.kind
-  && left.label.toLowerCase() === right.label.toLowerCase()
-  && left.value.toLowerCase() === right.value.toLowerCase();
-
-const mergeManualContacts = (manualEntries: ManualContactEntry[]): CompanyContact[] => {
-  const directory = COMPANY_CONTACTS.map((contact) => ({
-    ...contact,
-    aliases: [...contact.aliases],
-    details: [...contact.details],
-  }));
-
-  manualEntries.forEach((entry) => {
-    const normalizedCompany = normalizeCompanyName(entry.company);
-    let contact = directory.find((candidate) => {
-      const knownNames = [candidate.company, ...candidate.aliases].map(normalizeCompanyName);
-      return knownNames.includes(normalizedCompany);
-    });
-
-    if (!contact) {
-      contact = {
-        id: `manual-${normalizedCompany.replace(/\s+/g, '-')}`,
-        company: entry.company,
-        aliases: [],
-        category: 'Saved contact',
-        details: [],
-        source: 'Added manually in Agency Command Center',
-      };
-      directory.push(contact);
-    }
-
-    const savedDetail: ContactDetail = {
-      label: entry.label,
-      value: entry.value,
-      kind: entry.kind,
-    };
-
-    if (entry.replacesDetail) {
-      const replacedIndex = contact.details.findIndex((detail) =>
-        detailsMatch(detail, entry.replacesDetail as ContactDetail)
-      );
-      if (replacedIndex >= 0) {
-        contact.details[replacedIndex] = savedDetail;
-        return;
-      }
-    }
-
-    contact.details.push(savedDetail);
-  });
-
-  return directory;
-};
+interface ContactForm { company: string; kind: ContactDetailKind; label: string; value: string }
+interface EditingDetail { entry: ManualContactEntry | null; original: ContactDetail }
+const labels: Record<ContactDetailKind, string> = { phone: 'Customer service', fax: 'Fax', email: 'Email', website: 'Website' };
+const icons: Record<ContactDetailKind, string> = { phone: 'fa-phone', fax: 'fa-fax', email: 'fa-envelope', website: 'fa-globe' };
+const emptyForm = (company = ''): ContactForm => ({ company, kind: 'phone', label: labels.phone, value: '' });
+const button = 'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-white/20 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10';
+const primary = button + ' !border-transparent !bg-[#003f87] !text-white hover:!bg-[#0076d3]';
+const field = 'min-h-[44px] w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-white/20 dark:bg-slate-900 dark:text-white';
+const readable = 'min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]';
+const statusLabels = { loading: 'Checking shared contacts', syncing: 'Syncing', saved: 'Saved to shared directory',
+  unsynced: 'Unsynced changes', conflict: 'Review conflicting changes', error: 'Not synced' };
+const Icon = ({ name }: { name: string }) => <i aria-hidden="true" className={'fa-solid ' + name} />;
 
 const ContactLookup: React.FC<ContactLookupProps> = ({ query, onQueryChange, addToast }) => {
-  const [manualEntries, setManualEntries] = useLocalStorage<ManualContactEntry[]>(MANUAL_CONTACTS_STORAGE_KEY, []);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [manualForm, setManualForm] = useState<ManualContactForm>(EMPTY_MANUAL_FORM);
+  const contacts = useCompanyContacts();
+  const { entries, directory } = contacts;
+  const [open, setOpen] = useState(false);
   const [managedCompany, setManagedCompany] = useState<string | null>(null);
-  const [editingDetail, setEditingDetail] = useState<EditingDetail | null>(null);
-  const backupInputRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState<ContactForm>(emptyForm());
+  const [editing, setEditing] = useState<EditingDetail | null>(null);
+  const [formError, setFormError] = useState('');
+  const [removeId, setRemoveId] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const backupInput = useRef<HTMLInputElement>(null);
+  const companyInput = useRef<HTMLInputElement>(null);
+  const labelInput = useRef<HTMLInputElement>(null);
+  const removalPrompt = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const matches = useMemo(() => query.trim() ? findCompanyContacts(query, directory) : directory, [query, directory]);
+  const managed = directory.find((contact) => managedCompany && companyKey(contact.company) === companyKey(managedCompany));
+  const saved = managedCompany ? entries.filter((entry) => companyKey(entry.company) === companyKey(managedCompany)) : entries;
+  const pendingRemoval = entries.find((entry) => entry.id === removeId);
 
-  const directory = useMemo(() => mergeManualContacts(manualEntries), [manualEntries]);
-  const matches = useMemo(() => findCompanyContacts(query, directory), [query, directory]);
-  const managedContact = useMemo(() => {
-    if (!managedCompany) return null;
-    const normalizedCompany = normalizeCompanyName(managedCompany);
-    return directory.find((contact) =>
-      [contact.company, ...contact.aliases]
-        .map(normalizeCompanyName)
-        .includes(normalizedCompany)
-    ) || null;
-  }, [directory, managedCompany]);
-  const visibleSavedEntries = useMemo(() => {
-    if (!managedCompany) return manualEntries;
-    const normalizedCompany = normalizeCompanyName(managedCompany);
-    return manualEntries.filter((entry) =>
-      normalizeCompanyName(entry.company) === normalizedCompany
-    );
-  }, [managedCompany, manualEntries]);
-  const hasQuery = query.trim().length > 0;
-
-  const copyValue = async (label: string, value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      addToast(`${label} copied`, 'success');
-    } catch {
-      addToast(`Could not copy ${label.toLowerCase()}`, 'danger');
+  useEffect(() => {
+    if (removeId) {
+      removalPrompt.current?.focus();
+      removalPrompt.current?.scrollIntoView({ block: 'nearest' });
     }
-  };
+  }, [removeId]);
 
-  const downloadBackup = () => {
-    const backup = JSON.stringify({
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      entries: manualEntries,
-    }, null, 2);
-    const url = URL.createObjectURL(new Blob([backup], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `staff-contact-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    addToast('Staff contact backup downloaded.', 'success');
-  };
+  useEffect(() => {
+    if (!open || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = 'hidden';
+    companyInput.current?.focus();
+    return () => {
+      dialog.close();
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
+  }, [open]);
 
-  const restoreBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  function openManager(company?: string) {
+    setManagedCompany(company || null);
+    setForm(emptyForm(company || (matches.length === 1 ? matches[0].company : '')));
+    setEditing(null);
+    setRemoveId(null);
+    setFormError('');
+    setOpen(true);
+  }
+  function beginEdit(company: string, detail: ContactDetail) {
+    const entry = entries.find((item) => companyKey(item.company) === companyKey(company) && detailsMatch(item, detail)) || null;
+    setEditing({ entry, original: entry?.replacesDetail || detail });
+    setForm({ company, kind: detail.kind, label: detail.label, value: detail.value });
+    setFormError('');
+    labelInput.current?.focus();
+  }
+  async function copyValue(detail: ContactDetail) {
+    try { await navigator.clipboard.writeText(detail.value); addToast(detail.label + ' copied.', 'success'); }
+    catch { addToast('Clipboard unavailable. Select and copy the displayed value.', 'warning'); }
+  }
+  function downloadBackup() {
+    try {
+      const url = URL.createObjectURL(new Blob([contacts.exportBackup()], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'agency-contact-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { addToast('The backup could not be created. Keep this browser open.', 'danger'); }
+  }
+  async function restoreBackup(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
-
     try {
-      const parsed = JSON.parse(await file.text()) as unknown;
-      const entries = Array.isArray(parsed)
-        ? parsed
-        : parsed && typeof parsed === 'object' && 'entries' in parsed
-          ? (parsed as { entries?: unknown }).entries
-          : null;
-
-      if (!Array.isArray(entries) || !entries.every(isManualContactEntry)) {
-        throw new Error('Invalid staff contact backup');
-      }
-
-      setManualEntries((current) => {
-        const restoredIds = new Set(entries.map((entry) => entry.id));
-        return [...entries, ...current.filter((entry) => !restoredIds.has(entry.id))];
-      });
-      addToast(`${entries.length} saved contact changes restored.`, 'success');
-    } catch {
-      addToast('That file is not a valid staff contact backup.', 'danger');
+      if (file.size > 5_000_000) throw new Error('Backup exceeds 5 MB.');
+      const count = contacts.importBackup(await file.text());
+      addToast(count ? count + ' changes queued. Review any conflicts before syncing.' : 'The backup contains no new changes.', 'info');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Invalid backup. Nothing was imported.', 'danger');
     }
-  };
-
-  const openAddModal = (companyName?: string) => {
-    const suggestedCompany = companyName || (matches.length === 1 ? matches[0].company : '');
-    setManagedCompany(companyName || null);
-    setEditingDetail(null);
-    setManualForm({
-      company: suggestedCompany,
-      kind: 'phone',
-      label: DEFAULT_LABELS.phone,
-      value: '',
-    });
-    setIsAddModalOpen(true);
-  };
-
-  const closeAddModal = () => {
-    setIsAddModalOpen(false);
-    setManagedCompany(null);
-    setEditingDetail(null);
-  };
-
-  const resetDetailForm = (company: string) => {
-    setEditingDetail(null);
-    setManualForm({
-      company,
-      kind: 'phone',
-      label: DEFAULT_LABELS.phone,
-      value: '',
-    });
-  };
-
-  const beginEditDetail = (company: string, detail: ContactDetail) => {
-    const normalizedCompany = normalizeCompanyName(company);
-    const savedEntry = manualEntries.find((entry) =>
-      normalizeCompanyName(entry.company) === normalizedCompany
-      && entry.kind === detail.kind
-      && entry.label.toLowerCase() === detail.label.toLowerCase()
-      && entry.value.toLowerCase() === detail.value.toLowerCase()
-    );
-
-    setEditingDetail({
-      entryId: savedEntry?.id,
-      originalDetail: savedEntry?.replacesDetail || detail,
-      currentDetail: detail,
-    });
-    setManualForm({
-      company,
-      kind: detail.kind,
-      label: detail.label,
-      value: detail.value,
-    });
-  };
-
-  const handleKindChange = (kind: ContactDetailKind) => {
-    setManualForm((current) => ({
-      ...current,
-      kind,
-      label: DEFAULT_LABELS[kind],
-    }));
-  };
-
-  const handleManualContactSave = (event: React.FormEvent) => {
+  }
+  function save(event: React.FormEvent) {
     event.preventDefault();
-    const company = manualForm.company.trim();
-    const label = manualForm.label.trim();
-    const value = manualForm.value.trim();
-
-    if (!company || !label || !value) {
-      addToast('Company, label, and contact detail are required.', 'warning');
+    const value = form.value.trim();
+    const company = form.company.trim();
+    const label = form.label.trim();
+    if (!company || !label || !value) { setFormError('Company, label, and contact detail are required.'); return; }
+    if (form.kind === 'email' && !detailHref({ ...form, value })) { setFormError('Enter a complete email address.'); return; }
+    if (form.kind === 'website' && !detailHref({ ...form, value })) { setFormError('Enter an HTTP or HTTPS website address.'); return; }
+    const found = directory.find((contact) => companyKey(contact.company) === companyKey(company));
+    if (found?.details.some((detail) => detailsMatch(detail, { ...form, label, value }) &&
+        (!editing || !detailsMatch(detail, editing.entry || editing.original)))) {
+      setFormError('That contact detail already exists.');
       return;
     }
-
-    if (manualForm.kind === 'email' && !value.includes('@')) {
-      addToast('Please enter a valid email address.', 'warning');
-      return;
-    }
-
-    const companyContact = directory.find((contact) =>
-      [contact.company, ...contact.aliases]
-        .map(normalizeCompanyName)
-        .includes(normalizeCompanyName(company))
-    );
-    const savedDetail: ContactDetail = { kind: manualForm.kind, label, value };
-    const duplicate = companyContact?.details.some((detail) =>
-      detailsMatch(detail, savedDetail)
-      && (!editingDetail || !detailsMatch(detail, editingDetail.currentDetail))
-    );
-
-    if (duplicate) {
-      addToast('That contact detail is already saved.', 'warning');
-      return;
-    }
-
-    if (editingDetail) {
-      if (editingDetail.entryId) {
-        setManualEntries((current) => current.map((entry) =>
-          entry.id === editingDetail.entryId
-            ? { ...entry, company, kind: manualForm.kind, label, value }
-            : entry
-        ));
-      } else {
-        setManualEntries((current) => [{
-          id: globalThis.crypto?.randomUUID?.() || `contact-${Date.now()}`,
-          company,
-          kind: manualForm.kind,
-          label,
-          value,
-          createdAt: Date.now(),
-          replacesDetail: editingDetail.originalDetail,
-        }, ...current]);
-      }
-      onQueryChange(company);
-      resetDetailForm(company);
-      addToast(`${label} updated for ${company}.`, 'success');
-      return;
-    }
-
-    const newEntry: ManualContactEntry = {
-      id: globalThis.crypto?.randomUUID?.() || `contact-${Date.now()}`,
-      company,
-      kind: manualForm.kind,
-      label,
-      value,
-      createdAt: Date.now(),
+    const entry: ManualContactEntry = {
+      ...(editing?.entry || { id: crypto.randomUUID(), createdAt: Date.now() }),
+      company: found?.company || company, kind: form.kind, label, value,
+      ...(editing && !editing.entry ? { replacesDetail: editing.original } : {}),
     };
-
-    setManualEntries((current) => [newEntry, ...current]);
-    onQueryChange(company);
-    resetDetailForm(company);
-    addToast(`${label} added to ${company}.`, 'success');
-  };
-
-  const removeManualEntry = (entryId: string) => {
-    const entry = manualEntries.find((candidate) => candidate.id === entryId);
-    setManualEntries((current) => current.filter((candidate) => candidate.id !== entryId));
-    if (editingDetail?.entryId === entryId) {
-      resetDetailForm(managedCompany || entry?.company || '');
-    }
-    if (!entry) {
-      addToast('Contact detail removed.', 'info');
-      return;
-    }
-    addToast(
-      entry.replacesDetail
-        ? `${entry.label} restored to the original value for ${entry.company}.`
-        : `${entry.label} removed from ${entry.company}.`,
-      'info',
-    );
-  };
-
-  const categoryLabel = (category: CompanyContact['category']) => {
-    if (category === 'Workers compensation') return 'Workers comp';
-    if (category === 'Saved contact') return 'Added';
-    return 'Carrier';
-  };
-
-  return (
-    <>
-      <section
-        aria-label="Company contact search results"
-        aria-live="polite"
-        className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5"
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-3 py-2.5 dark:border-white/10 sm:px-4">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#003f87] text-white">
-              <i className="fa-solid fa-address-book text-xs"></i>
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">Company Contacts</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{directory.length} companies saved</p>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <input
-              ref={backupInputRef}
-              type="file"
-              accept="application/json,.json"
-              onChange={restoreBackup}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={downloadBackup}
-              title="Download a backup of staff-added contact changes"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#0076d3]/50 hover:text-[#003f87] dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-            >
-              <i className="fa-solid fa-download"></i>
-              <span className="hidden sm:inline">Backup</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => backupInputRef.current?.click()}
-              title="Restore staff-added contacts from a backup"
-              aria-label="Restore staff contact backup"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-[#0076d3]/50 hover:text-[#003f87] dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-            >
-              <i className="fa-solid fa-upload text-xs"></i>
-            </button>
-            <button
-              type="button"
-              onClick={() => openAddModal()}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#003f87] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0076d3] hover:shadow-md"
-            >
-              <i className="fa-solid fa-plus"></i>
-              Add Contact
-            </button>
-          </div>
+    try {
+      contacts.upsertEntry(entry, editing?.entry || null);
+      onQueryChange(entry.company);
+      setForm(emptyForm(entry.company));
+      setEditing(null);
+      setFormError('');
+      addToast('Contact change queued for sync.', 'info');
+    } catch (error) { setFormError(error instanceof Error ? error.message : 'Could not retain this change.'); }
+  }
+  function confirmRemoval() {
+    if (!pendingRemoval) return;
+    try {
+      contacts.removeEntry(pendingRemoval.id);
+      if (editing?.entry?.id === pendingRemoval.id) { setEditing(null); setForm(emptyForm(managedCompany || '')); }
+      setRemoveId(null);
+      addToast('Removal queued for sync.', 'info');
+    } catch (error) { setFormError(error instanceof Error ? error.message : 'Could not retain this removal.'); }
+  }
+  function resolve(operationIds: string[], choice: 'remote' | 'local') {
+    try { contacts.resolveConflict(operationIds, choice); }
+    catch (error) { addToast(error instanceof Error ? error.message : 'Conflict changed. Reload and review.', 'warning'); }
+  }
+  function syncPanel() {
+    return <div className="space-y-3 border-b border-slate-200 py-3 dark:border-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p role="status" className={'text-sm font-semibold ' + (contacts.status === 'saved' ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-200')}>
+          <Icon name={contacts.status === 'saved' ? 'fa-circle-check' : 'fa-cloud-arrow-up'} />{' '}
+          {statusLabels[contacts.status]}{contacts.pendingCount > 0 && ' (' + contacts.pendingCount + ')'}
+        </p>
+        <button type="button" className={button} onClick={() => void contacts.refresh()} disabled={contacts.status === 'syncing'}
+          title="Reload shared contacts and retry pending changes" aria-label="Reload shared contacts"><Icon name="fa-rotate" /></button>
+      </div>
+      {contacts.error && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{contacts.error}</p>}
+      {contacts.conflicts.map((conflict) => <div key={conflict.entryId} className="border-l-4 border-amber-500 pl-3">
+        <p className={'text-sm font-bold ' + readable}>{(conflict.local || conflict.remote || conflict.base)?.company}: {conflict.reason}</p>
+        <dl className={'my-2 space-y-1 text-sm ' + readable}>
+          <div><dt className="inline font-semibold">Pending: </dt><dd className="inline">{conflict.local ? conflict.local.label + ': ' + conflict.local.value : 'Remove detail'}</dd></div>
+          <div><dt className="inline font-semibold">Shared: </dt><dd className="inline">{conflict.remote ? conflict.remote.label + ': ' + conflict.remote.value : 'No entry (removed or not yet added)'}</dd></div>
+          {conflict.competingEntries.map((entry) => <div key={entry.id}><dt className="inline font-semibold">Other correction: </dt><dd className="inline">{entry.label}: {entry.value}</dd></div>)}
+        </dl>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={button} onClick={() => resolve(conflict.operationIds, 'remote')}>Use shared</button>
+          <button type="button" className={button} onClick={() => {
+            if (window.confirm('Replace the displayed shared version with your pending change?')) resolve(conflict.operationIds, 'local');
+          }}>Keep my change</button>
         </div>
+      </div>)}
+    </div>;
+  }
+  function detailValue(detail: ContactDetail) {
+    const href = detailHref(detail);
+    return href ? <a href={href} target={detail.kind === 'website' ? '_blank' : undefined}
+      rel={detail.kind === 'website' ? 'noopener noreferrer' : undefined}
+      className={readable + ' block text-sm font-semibold text-[#005eb8] hover:underline dark:text-blue-300'}>{detail.value}</a>
+      : <span className={readable + ' block text-sm font-semibold'}>{detail.value}</span>;
+  }
 
-        {!hasQuery ? (
-          <div className="px-4 py-3">
-            <p className="text-sm font-semibold text-slate-800 dark:text-white">Start typing a company name</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Phone, fax, email, and website details will appear as you type.</p>
-          </div>
-        ) : matches.length === 0 ? (
-          <div className="flex items-center gap-3 px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-            <i className="fa-solid fa-circle-info text-slate-400"></i>
-            No saved contact matches "{query.trim()}". Use Add Contact to create it.
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5 dark:border-white/10">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                {matches.length} {matches.length === 1 ? 'company' : 'companies'} found
-              </p>
-              <span className="text-xs text-slate-400">Scroll for more details</span>
+  return <>
+    <section aria-label="Company contact search results" className="mt-3 min-w-0 text-slate-900 dark:text-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 py-3 dark:border-white/10">
+        <div><h3 className="text-base font-bold"><Icon name="fa-address-book" /> Company Contacts</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{directory.length} companies</p></div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={button} onClick={downloadBackup} title="Download contact backup"><Icon name="fa-download" /> Backup</button>
+          <button type="button" className={button} onClick={() => backupInput.current?.click()} title="Merge contact backup" aria-label="Restore contact backup"><Icon name="fa-upload" /></button>
+          <button type="button" className={primary} onClick={() => openManager()}><Icon name="fa-plus" /> Add Contact</button>
+        </div>
+      </div>
+      <input ref={backupInput} type="file" accept="application/json,.json" onChange={restoreBackup} className="hidden" aria-label="Contact backup file" />
+      {syncPanel()}
+      {matches.length === 0 ? <p className="py-5 text-sm">No companies match "{query.trim()}".</p> :
+        <div aria-label="Company contacts" tabIndex={0} className="grid max-h-[32rem] min-w-0 gap-3 overflow-y-auto overscroll-contain py-3 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 lg:grid-cols-2">
+          {matches.map((contact) => <article key={contact.id} className="min-w-0 rounded-lg border border-slate-200 p-3 dark:border-white/15">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div className={readable}><h4 className="text-sm font-bold">{contact.company}</h4>
+                {contact.address && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{contact.address}</p>}</div>
+              <button type="button" className={button} onClick={() => openManager(contact.company)}
+                title={'Manage ' + contact.company} aria-label={'Manage ' + contact.company}><Icon name="fa-pen" /></button>
             </div>
-            <div
-              tabIndex={0}
-              aria-label="Scrollable company contact details"
-              className="grid max-h-96 min-h-0 gap-2 overflow-y-auto overscroll-contain p-2 outline-none [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0076d3]/50 lg:grid-cols-2"
-            >
-              {matches.map((contact) => (
-                <article
-                  key={contact.id}
-                  className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-900/60"
-                >
-                  <div className="mb-2 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">{contact.company}</h3>
-                      {contact.address && (
-                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{contact.address}</p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <span className="rounded-md bg-blue-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#003f87] dark:bg-blue-500/10 dark:text-blue-200">
-                        {categoryLabel(contact.category)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => openAddModal(contact.company)}
-                        title={`Add or edit contact details for ${contact.company}`}
-                        aria-label={`Add or edit contact details for ${contact.company}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-[#003f87] shadow-sm transition hover:border-[#0076d3]/50 hover:bg-blue-50 hover:text-[#0076d3] dark:border-white/10 dark:bg-white/5 dark:text-blue-200 dark:hover:bg-white/10"
-                      >
-                        <i className="fa-solid fa-plus text-[10px]"></i>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {contact.details.map((detail, detailIndex) => {
-                      const href = detailHref(detail);
-                      return (
-                        <div
-                          key={`${detail.label}-${detail.value}-${detailIndex}`}
-                          className="flex min-h-9 min-w-0 items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 dark:bg-white/5"
-                        >
-                          <i className={`fa-solid ${detailIcon[detail.kind]} w-4 shrink-0 text-center text-xs text-slate-400`}></i>
-                          <span className="w-16 shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400 sm:w-28">
-                            <span className="sm:hidden">{mobileDetailLabel(detail.label)}</span>
-                            <span className="hidden sm:inline">{detail.label}</span>
-                          </span>
-                          {href ? (
-                            <a
-                              href={href}
-                              target={detail.kind === 'website' ? '_blank' : undefined}
-                              rel={detail.kind === 'website' ? 'noreferrer' : undefined}
-                              title={detail.value}
-                              className="min-w-0 flex-1 truncate text-xs font-semibold text-[#005eb8] hover:underline dark:text-blue-300 sm:text-sm"
-                            >
-                              {detail.value}
-                            </a>
-                          ) : (
-                            <span title={detail.value} className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800 dark:text-slate-200 sm:text-sm">{detail.value}</span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => copyValue(detail.label, detail.value)}
-                            title={`Copy ${detail.label.toLowerCase()}`}
-                            aria-label={`Copy ${detail.label.toLowerCase()} for ${contact.company}`}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-white hover:text-[#003f87] dark:hover:bg-white/10 dark:hover:text-white"
-                          >
-                            <i className="fa-regular fa-copy text-xs"></i>
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <p className="mt-2 break-words text-[10px] text-slate-400">{contact.source}</p>
-                </article>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
-
-      {createPortal(
-        <Modal
-          isOpen={isAddModalOpen}
-          onClose={closeAddModal}
-          title={managedContact ? `Manage ${managedContact.company}` : 'Add Company Contact'}
-          maxWidthClass="max-w-lg"
-        >
-          <div className="max-h-[calc(100vh-9rem)] overflow-y-auto pr-1 [scrollbar-gutter:stable]">
-          <form onSubmit={handleManualContactSave} className="space-y-4">
-            <div>
-              <label htmlFor="manual-contact-company" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Company name
-              </label>
-              <input
-                id="manual-contact-company"
-                type="text"
-                value={manualForm.company}
-                onChange={(event) => setManualForm((current) => ({ ...current, company: event.target.value }))}
-                readOnly={Boolean(managedCompany)}
-                placeholder="Example: Nationwide"
-                className={`w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0076d3] dark:border-white/10 dark:text-white ${
-                  managedCompany ? 'cursor-default bg-slate-100 dark:bg-white/10' : 'bg-white dark:bg-white/5'
-                }`}
-              />
-            </div>
-
-            {managedContact && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Current Details</h4>
-                  <span className="text-xs text-slate-400">{managedContact.details.length} saved</span>
+            <div className="divide-y divide-slate-100 dark:divide-white/10">
+              {contact.details.map((detail, index) => <div key={index} className="flex min-w-0 items-center gap-2 py-2">
+                <div className={readable + ' flex-1'}>
+                  <p className="mb-1 text-xs text-slate-500 dark:text-slate-400"><Icon name={icons[detail.kind]} /> {detail.label}</p>
+                  {detailValue(detail)}
                 </div>
-                <div className="max-h-44 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
-                  {managedContact.details.map((detail, detailIndex) => (
-                    <div
-                      key={`${detail.kind}-${detail.label}-${detail.value}-${detailIndex}`}
-                      className={`flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-2 ${
-                        editingDetail && detailsMatch(detail, editingDetail.currentDetail)
-                          ? 'border-[#0076d3] bg-blue-50 dark:border-blue-400/60 dark:bg-blue-500/10'
-                          : 'border-slate-200 bg-white dark:border-white/10 dark:bg-white/5'
-                      }`}
-                    >
-                      <i className={`fa-solid ${detailIcon[detail.kind]} w-4 shrink-0 text-center text-xs text-slate-400`}></i>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">{detail.label}</p>
-                        <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">{detail.value}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => beginEditDetail(managedContact.company, detail)}
-                        title={`Edit ${detail.label.toLowerCase()}`}
-                        aria-label={`Edit ${detail.label.toLowerCase()} for ${managedContact.company}`}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-blue-50 hover:text-[#003f87] dark:hover:bg-white/10 dark:hover:text-blue-200"
-                      >
-                        <i className="fa-solid fa-pen text-xs"></i>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {editingDetail && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 dark:border-blue-400/30 dark:bg-blue-500/10">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[#003f87] dark:text-blue-200">Editing Detail</p>
-                  <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">{editingDetail.currentDetail.label}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => resetDetailForm(manualForm.company)}
-                  className="shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-[#003f87] transition hover:bg-white dark:text-blue-200 dark:hover:bg-white/10"
-                >
-                  Cancel Edit
-                </button>
-              </div>
-            )}
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor="manual-contact-kind" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Contact type
-                </label>
-                <select
-                  id="manual-contact-kind"
-                  value={manualForm.kind}
-                  onChange={(event) => handleKindChange(event.target.value as ContactDetailKind)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0076d3] dark:border-white/10 dark:bg-slate-900 dark:text-white"
-                >
-                  <option value="phone">Phone</option>
-                  <option value="fax">Fax</option>
-                  <option value="email">Email</option>
-                  <option value="website">Website</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="manual-contact-label" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Label
-                </label>
-                <input
-                  id="manual-contact-label"
-                  type="text"
-                  value={manualForm.label}
-                  onChange={(event) => setManualForm((current) => ({ ...current, label: event.target.value }))}
-                  placeholder="Claims, billing, underwriting..."
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0076d3] dark:border-white/10 dark:bg-white/5 dark:text-white"
-                />
-              </div>
+                <button type="button" className={button} onClick={() => void copyValue(detail)}
+                  title={'Copy ' + detail.label} aria-label={'Copy ' + detail.label + ' for ' + contact.company}><Icon name="fa-copy" /></button>
+              </div>)}
             </div>
-
-            <div>
-              <label htmlFor="manual-contact-value" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Contact detail
-              </label>
-              <input
-                id="manual-contact-value"
-                type={manualForm.kind === 'email' ? 'email' : 'text'}
-                inputMode={manualForm.kind === 'phone' || manualForm.kind === 'fax' ? 'tel' : 'text'}
-                value={manualForm.value}
-                onChange={(event) => setManualForm((current) => ({ ...current, value: event.target.value }))}
-                placeholder={manualForm.kind === 'phone' || manualForm.kind === 'fax' ? '1-800-555-0123' : manualForm.kind === 'email' ? 'service@company.com' : 'www.company.com'}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0076d3] dark:border-white/10 dark:bg-white/5 dark:text-white"
-              />
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeAddModal}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-              >
-                Close
-              </button>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-lg bg-[#003f87] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0076d3]"
-              >
-                <i className={`fa-solid ${editingDetail ? 'fa-check' : 'fa-plus'}`}></i>
-                {editingDetail ? 'Update Detail' : 'Save Detail'}
-              </button>
-            </div>
-          </form>
-
-          {visibleSavedEntries.length > 0 && (
-            <div className="mt-5 border-t border-slate-200 pt-4 dark:border-white/10">
-              <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Saved Changes</h4>
-                <span className="text-xs text-slate-400">{visibleSavedEntries.length} saved</span>
-              </div>
-              <div className="max-h-44 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
-                {visibleSavedEntries.map((entry) => (
-                  <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5 dark:border-white/10 dark:bg-white/5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#003f87] shadow-sm dark:bg-white/10 dark:text-blue-200">
-                      <i className={`fa-solid ${detailIcon[entry.kind]} text-xs`}></i>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">{entry.company}</p>
-                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                        {entry.replacesDetail ? 'Edited' : entry.label}: {entry.value}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeManualEntry(entry.id)}
-                      title={entry.replacesDetail ? `Restore the original ${entry.label.toLowerCase()}` : `Remove ${entry.label.toLowerCase()} from ${entry.company}`}
-                      aria-label={entry.replacesDetail ? `Restore the original ${entry.label.toLowerCase()} for ${entry.company}` : `Remove ${entry.label.toLowerCase()} from ${entry.company}`}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
-                    >
-                      <i className={`fa-solid ${entry.replacesDetail ? 'fa-rotate-left' : 'fa-trash-can'} text-xs`}></i>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <p className="mt-4 text-xs text-slate-400">
-            Added and edited contacts save automatically in this staff browser. Use Backup above to download a restorable copy.
-          </p>
-          </div>
-        </Modal>,
-        document.body,
-      )}
-    </>
-  );
+          </article>)}
+        </div>}
+    </section>
+    {open && createPortal(<dialog ref={dialogRef} aria-modal="true" aria-labelledby={id + '-title'} onCancel={() => setOpen(false)}
+      className="fixed inset-0 m-auto max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-slate-300 bg-white p-4 text-slate-900 shadow-2xl backdrop:bg-black/60 dark:border-white/20 dark:bg-slate-900 dark:text-white sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <h2 id={id + '-title'} className={readable + ' text-lg font-bold'}>{managed ? 'Manage ' + managed.company : 'Add Company Contact'}</h2>
+        <button type="button" className={button} onClick={() => setOpen(false)} title="Close contact manager" aria-label="Close contact manager"><Icon name="fa-xmark" /></button>
+      </div>
+      {syncPanel()}
+      <form onSubmit={save} className="space-y-4 py-4">
+        <div><label htmlFor={id + '-company'} className="mb-1 block text-sm font-semibold">Company name</label>
+          <input ref={companyInput} id={id + '-company'} className={field} required maxLength={CONTACT_LIMITS.company} readOnly={!!managedCompany}
+            value={form.company} onChange={(event) => setForm({ ...form, company: event.target.value })} /></div>
+        {editing && <div className="flex flex-wrap items-center justify-between gap-2 border-l-4 border-blue-500 pl-3">
+          <p className="text-sm font-semibold">Editing detail</p>
+          <button type="button" className={button} onClick={() => { setEditing(null); setForm(emptyForm(form.company)); setFormError(''); }}>Cancel edit</button>
+        </div>}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label htmlFor={id + '-kind'} className="mb-1 block text-sm font-semibold">Contact type</label>
+            <select id={id + '-kind'} className={field} value={form.kind} onChange={(event) => {
+              const kind = event.target.value as ContactDetailKind;
+              setForm({ ...form, kind, label: labels[kind] });
+            }}><option value="phone">Phone</option><option value="fax">Fax</option><option value="email">Email</option><option value="website">Website</option></select></div>
+          <div><label htmlFor={id + '-label'} className="mb-1 block text-sm font-semibold">Label</label>
+            <input ref={labelInput} id={id + '-label'} className={field} required maxLength={CONTACT_LIMITS.label} value={form.label}
+              onChange={(event) => setForm({ ...form, label: event.target.value })} /></div>
+        </div>
+        <div><label htmlFor={id + '-value'} className="mb-1 block text-sm font-semibold">Contact detail</label>
+          <input id={id + '-value'} className={field} required maxLength={CONTACT_LIMITS.value} type={form.kind === 'email' ? 'email' : 'text'}
+            inputMode={form.kind === 'phone' || form.kind === 'fax' ? 'tel' : form.kind === 'email' ? 'email' : 'text'}
+            value={form.value} onChange={(event) => setForm({ ...form, value: event.target.value })}
+            aria-invalid={!!formError} aria-describedby={formError ? id + '-error' : undefined} /></div>
+        {formError && <p id={id + '-error'} role="alert" className="text-sm text-rose-700 dark:text-rose-300">{formError}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className={button} onClick={downloadBackup} title="Download contact backup"><Icon name="fa-download" /> Backup</button>
+          <button type="submit" className={primary}><Icon name={editing ? 'fa-check' : 'fa-plus'} />{editing ? 'Update Detail' : 'Save Detail'}</button>
+        </div>
+      </form>
+      {managed && <div className="border-t border-slate-200 py-4 dark:border-white/10">
+        <h3 className="mb-2 text-sm font-bold">Current Details</h3>
+        <div className="divide-y divide-slate-100 dark:divide-white/10">{managed.details.map((detail, index) => <div key={index} className="flex min-w-0 items-center gap-2 py-2">
+          <div className={readable + ' flex-1'}><p className="text-xs text-slate-500 dark:text-slate-400">{detail.label}</p>{detailValue(detail)}</div>
+          <button type="button" className={button} onClick={() => beginEdit(managed.company, detail)} title={'Edit ' + detail.label} aria-label={'Edit ' + detail.label}><Icon name="fa-pen" /></button>
+        </div>)}</div>
+      </div>}
+      <div className="border-t border-slate-200 py-4 dark:border-white/10">
+        <h3 className="mb-2 text-sm font-bold">Added Details and Corrections</h3>
+        {!saved.length && <p className="text-sm text-slate-500 dark:text-slate-400">No added details or corrections.</p>}
+        {pendingRemoval && <div ref={removalPrompt} tabIndex={-1} role="alert" className="my-3 border-l-4 border-rose-500 pl-3">
+          <p className={readable + ' text-sm'}>{pendingRemoval.replacesDetail ? 'Restore the original detail' : 'Remove this detail'} for {pendingRemoval.company}: {pendingRemoval.value}?</p>
+          <div className="mt-2 flex flex-wrap gap-2"><button type="button" className={button} onClick={() => setRemoveId(null)}>Cancel</button>
+            <button type="button" className={button + ' !text-rose-700'} onClick={confirmRemoval}>{pendingRemoval.replacesDetail ? 'Restore original' : 'Remove detail'}</button></div>
+        </div>}
+        <div className="divide-y divide-slate-100 dark:divide-white/10">{saved.map((entry) => <div key={entry.id} className="flex min-w-0 items-center gap-2 py-2">
+          <div className={readable + ' flex-1'}><p className="text-sm font-semibold">{entry.company}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{entry.label}{entry.replacesDetail ? ' (correction)' : ''}</p>{detailValue(entry)}</div>
+          <button type="button" className={button} onClick={() => beginEdit(entry.company, entry)} title={'Edit ' + entry.label} aria-label={'Edit added ' + entry.label}><Icon name="fa-pen" /></button>
+          <button type="button" className={button} onClick={() => setRemoveId(entry.id)} title={entry.replacesDetail ? 'Restore original detail' : 'Remove detail'}
+            aria-label={(entry.replacesDetail ? 'Restore original ' : 'Remove ') + entry.label + ' for ' + entry.company}><Icon name={entry.replacesDetail ? 'fa-rotate-left' : 'fa-trash-can'} /></button>
+        </div>)}</div>
+      </div>
+    </dialog>, document.body)}
+  </>;
 };
-
 export default ContactLookup;

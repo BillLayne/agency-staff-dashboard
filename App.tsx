@@ -4,8 +4,6 @@ import SearchCard from './components/SearchCard';
 import Toast from './components/Toast';
 import type { ToastMessage } from './types';
 
-const ACCESS_CODE = '1993';
-
 type WorkspaceMode = 'search' | 'tools';
 
 const quickActions = [
@@ -48,15 +46,13 @@ const quickActions = [
   {
     label: 'No Loss Forms',
     description: 'Open the no-loss form agent portal.',
-    href: 'https://mynolossform.com/agent-portal.html',
+    href: 'https://esign.billlayneinsurance.com/agent',
     icon: 'fa-solid fa-file-signature',
   },
 ];
 
 export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [password, setPassword] = useState('');
-  const [isUnlocked, setIsUnlocked] = useState(false);
   const [searchCount, setSearchCount] = useState(0);
   const [activeMode, setActiveMode] = useState<WorkspaceMode>('search');
 
@@ -67,16 +63,6 @@ export default function App() {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 3000);
   }, []);
-
-  const handleUnlock = () => {
-    if (password === ACCESS_CODE) {
-      setIsUnlocked(true);
-      addToast('Staff dashboard unlocked.', 'success');
-      return;
-    }
-
-    addToast('Incorrect access code.', 'danger');
-  };
 
   const handleSearch = useCallback(() => {
     setSearchCount((current) => current + 1);
@@ -97,62 +83,6 @@ export default function App() {
       ))}
     </div>
   );
-
-  if (!isUnlocked) {
-    return (
-      <div className="min-h-screen bg-[#eef4fb] text-slate-900">
-        <div className="relative flex min-h-screen items-center justify-center px-4">
-          <div className="w-full max-w-md rounded-[1.35rem] border border-slate-200 bg-white p-6 shadow-[0_28px_70px_-48px_rgba(15,23,42,0.65)]">
-            <div className="mb-6 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-blue-900/15">
-                <i className="fa-solid fa-shield-halved text-lg"></i>
-              </div>
-              <p className="mt-4 text-[11px] font-black uppercase tracking-[0.35em] text-[#0076d3]">
-                Bill Layne Insurance
-              </p>
-              <h1 className="mt-2 font-outfit text-3xl font-black tracking-tight text-slate-950">
-                Agency Staff Dashboard
-              </h1>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                Enter the staff access code to open search, operations, documents, forms, and property tools.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                  Access Code
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleUnlock();
-                    }
-                  }}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base font-semibold text-slate-900 outline-none transition focus:border-[#0076d3] focus:bg-white focus:ring-4 focus:ring-blue-100"
-                  placeholder="Enter code"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleUnlock}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#003f87]"
-              >
-                <i className="fa-solid fa-unlock-keyhole"></i>
-                Unlock Dashboard
-              </button>
-            </div>
-          </div>
-
-          {toastStack}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#eef4fb] text-slate-900">
@@ -201,6 +131,14 @@ export default function App() {
               <i className="fa-solid fa-bolt text-[11px]"></i>
               Quick Search
             </button>
+            <a
+              href="/logout"
+              aria-label="Log out of staff dashboard"
+              title="Log out"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-[#0076d3]/50 hover:text-[#003f87] focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30"
+            >
+              <i className="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+            </a>
           </div>
         </div>
       </header>

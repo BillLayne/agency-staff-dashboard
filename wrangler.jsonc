@@ -1,0 +1,13 @@
+{
+  "name": "agency-staff-dashboard",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-09-07",
+  "vars": { "APP_ID": "agency-staff-dashboard", "APP_NAME": "Agency Staff Dashboard", "GEMINI_MODEL": "gemini-2.5-flash" },
+  "d1_databases": [{ "binding": "CONTACTS_DB", "database_name": "agency-shared-contacts", "database_id": "30298ddf-3c36-4d2d-83d1-61f1a4981ec4" }],
+  "env": {
+    "preview": {
+      "vars": { "APP_ID": "agency-staff-dashboard", "APP_NAME": "Agency Staff Dashboard Preview", "GEMINI_MODEL": "gemini-2.5-flash" },
+      "d1_databases": [{ "binding": "CONTACTS_DB", "database_name": "agency-shared-contacts-preview", "database_id": "44801675-641f-4177-8c7d-0ac2804b04fc" }]
+    }
+  }
+}

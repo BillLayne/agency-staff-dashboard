@@ -1,10 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import type { SearchMode } from '../types';
 import { MODE_META, NC_COUNTY_GIS_DATA, DEFAULT_INSURANCE_PORTALS } from '../constants';
 import Modal from './Modal';
 import ContactLookup from './ContactLookup';
-import { GoogleGenAI } from "@google/genai";
+import { requestAi, type AiAttachment } from '../services/aiClient';
 
 interface SearchCardProps {
   addToast: (message: string, type?: 'success' | 'warning' | 'danger' | 'info') => void;
@@ -12,33 +13,22 @@ interface SearchCardProps {
   onSearch: () => void;
 }
 
-const SEARCH_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const;
+const NOTES_DRAFT_KEY = 'staff-dashboard:notes-draft:v1';
+
+const readNotesDraft = (): { customerName: string; customerNotes: string } => {
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(NOTES_DRAFT_KEY) || 'null');
+    if (typeof draft?.customerName === 'string' && typeof draft?.customerNotes === 'string') return draft;
+  } catch {
+    // Storage may be unavailable; the current memo still works in memory.
+  }
+  return { customerName: '', customerNotes: '' };
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === 'string') return error;
-  return 'Unknown Gemini error';
-};
-
-const shouldRetryOnFallback = (error: unknown) => {
-  const message = getErrorMessage(error).toLowerCase();
-  const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status?: number }).status) : undefined;
-  return status === 429 || status === 503 || message.includes('quota') || message.includes('high demand') || message.includes('resource_exhausted') || message.includes('unavailable');
-};
-
-const generateWithFallback = async (ai: GoogleGenAI, request: Omit<Parameters<GoogleGenAI['models']['generateContent']>[0], 'model'>) => {
-  let lastError: unknown;
-  for (const model of SEARCH_MODELS) {
-    try {
-      return await ai.models.generateContent({ ...request, model });
-    } catch (error) {
-      lastError = error;
-      if (!shouldRetryOnFallback(error) || model === SEARCH_MODELS[SEARCH_MODELS.length - 1]) {
-        throw error;
-      }
-    }
-  }
-  throw lastError;
+  return 'Unknown AI error';
 };
 
 const parseJsonFromText = <T,>(text: string): T => {
@@ -73,14 +63,33 @@ const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch
   // Notes Modal State
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [isNotesMinimized, setIsNotesMinimized] = useState(false);
-  const [customerName, setCustomerName] = useState('');
-  const [customerNotes, setCustomerNotes] = useState('');
+  const [initialNotesDraft] = useState(readNotesDraft);
+  const [customerName, setCustomerName] = useState(initialNotesDraft.customerName);
+  const [customerNotes, setCustomerNotes] = useState(initialNotesDraft.customerNotes);
   const [isOrganizingNotes, setIsOrganizingNotes] = useState(false);
+  const draftWarningShown = useRef(false);
   
   // Notes File Staging State
   const [isProcessingNotesFile, setIsProcessingNotesFile] = useState(false);
   const [stagedNotesFile, setStagedNotesFile] = useState<{ data: string, mimeType: string, name: string } | null>(null);
   const notesFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      // Keep text in this tab only; do not persist attached customer documents.
+      if (customerName || customerNotes) {
+        sessionStorage.setItem(NOTES_DRAFT_KEY, JSON.stringify({ customerName, customerNotes }));
+      } else {
+        sessionStorage.removeItem(NOTES_DRAFT_KEY);
+      }
+      draftWarningShown.current = false;
+    } catch {
+      if (!draftWarningShown.current) {
+        addToast('Draft storage is unavailable. Keep this memo open or copy it before leaving.', 'warning');
+        draftWarningShown.current = true;
+      }
+    }
+  }, [customerName, customerNotes, addToast]);
 
   const GOOGLE_DRIVE_CONSTANTS = {
       agencyEmail: 'docs@billlayneinsurance.com',
@@ -102,7 +111,7 @@ const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch
       // 2. Ctrl + Shift + M (Memo/Compliance Studio) - Matches Ctrl+M pattern
       if ((e.altKey && e.key.toLowerCase() === 'n') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'm')) {
           e.preventDefault();
-          if (query.trim()) {
+          if (query.trim() && !customerName && !customerNotes && !stagedNotesFile) {
             setCustomerName(query.trim());
           }
           setIsNotesModalOpen(true);
@@ -132,7 +141,7 @@ const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addToast, query]);
+  }, [addToast, query, customerName, customerNotes, stagedNotesFile]);
 
   const handleSearch = () => {
     if (!query.trim()) {
@@ -213,20 +222,11 @@ const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch
     }
     setIsGisSearching(true);
     try {
-        const API_KEY = process.env.API_KEY;
-        if (!API_KEY) throw new Error("API key not found.");
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
-        const prompt = `Analyze this North Carolina property address: "${query}".
-Find the official county GIS or county tax parcel viewer for this address.
-Return ONLY a JSON object in this shape and no extra text:
-{"county":"...","url":"...","note":"..."}
-If you are uncertain, still provide the most likely official county source and explain briefly in note.`;
-        const response = await generateWithFallback(ai, {
-            contents: prompt,
-            config: { tools: [{googleSearch: {}}] }
-        });
-        if (!response.text) throw new Error("AI returned empty response.");
-        const data = parseJsonFromText<{ county?: string; url: string; note?: string }>(response.text);
+        const response = await requestAi({ task: 'county-map', text: query.trim(), address: query.trim() });
+        const data = parseJsonFromText<{ county?: string; url: string; note?: string }>(response);
+        if (typeof data.url !== 'string' || !/^https?:\/\//i.test(data.url)) {
+            throw new Error('AI did not return a valid county map link.');
+        }
         setGisInfo({ county: data.county || 'Unknown County', url: data.url, note: data.note });
         setIsGisModalOpen(true);
         addToast(`Found GIS for ${data.county}`, 'success');
@@ -256,73 +256,21 @@ If you are uncertain, still provide the most likely official county source and e
     setReportSubject('');
 
     try {
-        const API_KEY = process.env.API_KEY;
-        if (!API_KEY) throw new Error("API key not found.");
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
-        
-        const researchPrompt = `
-You are a Senior Property Risk Underwriter & Agent Strategist at Bill Layne Insurance Agency.
-Research this property using search and attached evidence:
-"${query.trim()}"
-
-Return concise factual research notes only. Include:
-1. Year built, square footage, lot size, property type, likely construction.
-2. Roof, plumbing, HVAC, basement/crawlspace, and any visible underwriting concerns.
-3. Estimated replacement cost range using rough NC rebuild assumptions.
-4. Flood information, protection class clues, hydrant/station proximity if available.
-5. Carrier fit notes for NC Grange, Alamance, Nationwide, Travelers, Progressive, National General, and Foremost.
-6. 3 short client talking points.
-7. Direct links for Zillow, Realtor, and the official county GIS/tax viewer.
-
-Keep it factual and compact. No HTML.`;
-
-        const parts: any[] = [{ text: researchPrompt }];
+        const attachments: AiAttachment[] = [];
         for (const file of propertyFiles) {
-            const base64 = await fileToBase64(file);
-            parts.push({ inlineData: { mimeType: file.type, data: base64 } });
+            attachments.push({ data: await fileToBase64(file), mimeType: file.type, name: file.name });
         }
-
-        const researchResponse = await generateWithFallback(ai, {
-            contents: { parts },
-            config: {
-                tools: [{googleSearch: {}}],
-            }
+        const response = await requestAi({
+            task: 'property-report',
+            text: query.trim(),
+            address: query.trim(),
+            attachments,
         });
-
-        if (!researchResponse.text) throw new Error("Property research failed.");
-
-        const reportPrompt = `
-You are building a polished HTML property intelligence report for Bill Layne Insurance Agency.
-
-PROPERTY ADDRESS:
-${query.trim()}
-
-RESEARCH NOTES:
-${researchResponse.text}
-
-Create a compact HTML report with:
-- subject
-- htmlBody
-
-Report requirements:
-- Use clean table-based HTML only.
-- Black or dark navy header with Bill Layne logo: https://i.imgur.com/lxu9nfT.png
-- Alternating row colors (#F9FAFB and #FFFFFF)
-- Include sections for Master Specifications, Replacement Cost Estimate, Systems & Risk Exposure, Carrier Appetite Scoring, Environmental & FEMA, Client Talking Points, and Quick Links.
-- Quick Links must include Zillow, Realtor, and County GIS as clickable links/buttons.
-- Keep it dense, readable, and useful for an agent talking to a client.
-
-Return ONLY a JSON object in this exact shape:
-{"subject":"...","htmlBody":"..."}
-`;
-
-        const response = await generateWithFallback(ai, {
-            contents: reportPrompt,
-        });
-
-        if (!response.text) throw new Error("Content generation failed.");
-        const data = parseJsonFromText<{ subject: string; htmlBody: string }>(response.text);
-        setReportHtml(data.htmlBody);
+        const data = parseJsonFromText<{ subject: string; htmlBody: string }>(response);
+        if (typeof data.subject !== 'string' || typeof data.htmlBody !== 'string' || !data.htmlBody.trim()) {
+            throw new Error('AI did not return a valid property report.');
+        }
+        setReportHtml(DOMPurify.sanitize(data.htmlBody, { WHOLE_DOCUMENT: true, FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'] }));
         setReportSubject(data.subject);
         addToast('High-Intelligence Report Generated!', 'success');
     } catch (error) {
@@ -387,51 +335,20 @@ Return ONLY a JSON object in this exact shape:
   };
 
   const handleNotesOpen = () => {
-    if (query.trim()) setCustomerName(query.trim());
+    if (query.trim() && !customerName && !customerNotes && !stagedNotesFile) setCustomerName(query.trim());
     setIsNotesModalOpen(true);
     setIsNotesMinimized(false);
   };
 
   const handleOrganizeNotes = async () => {
-    if (!customerNotes.trim()) return;
+    if (!customerNotes.trim() || isOrganizingNotes || isProcessingNotesFile) return;
     setIsOrganizingNotes(true);
     try {
-        const estTime = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
-        const prompt = `
-        Act as a Senior E&O (Errors & Omissions) Risk Compliance Officer for Bill Layne Insurance Agency. 
-        Your task is to transform the following raw agent notes and pasted email content into a professional, high-density, audit-proof CRM memo.
-
-        **MISSION:** 
-        Protect the agency by meticulously documenting what was requested and exactly what was done.
-
-        **CURRENT AGENT FULFILLMENT TIME (EST):** ${estTime}
-
-        **INPUT TEXT:**
-        ---
-        ${customerNotes}
-        ---
-
-        **STRICT AUDIT FORMAT:**
-        1. **REQUEST SUMMARY:** Clearly state what the client requested by parsing any pasted email headers or thread content. Identify WHO requested WHAT and WHEN (from the email metadata).
-        2. **ACTION TAKEN:** Precisely document the agent's performance based on the manual remarks provided. If the agent says "I sent it" or "I processed it", use the **CURRENT AGENT FULFILLMENT TIME** provided above to document the exact timestamp of fulfillment.
-        3. **CHRONOLOGY:** Create a clear timeline: [Request Received Timestamp] -> [Agent Action Timestamp].
-        4. **STATUS:** (e.g., COMPLETED, PENDING UW, VOIDED).
-        
-        Keep it concise, professional, and clear of jargon. Return ONLY the bulleted memo text.
-        `;
-        const API_KEY = process.env.API_KEY;
-        if (!API_KEY) throw new Error("API key not found.");
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
-        const response = await generateWithFallback(ai, {
-          contents: prompt,
-          config: {
-            systemInstruction: 'You are a senior E&O compliance assistant for an independent insurance agency. Return concise, audit-ready CRM memo text only.',
-          },
-        });
-        if (response.text) setCustomerNotes(response.text);
+        const response = await requestAi({ task: 'organize-notes', text: customerNotes, customerName });
+        setCustomerNotes(current => current === customerNotes ? response : `${current}\n\n--- ORGANIZED MEMO ---\n${response}`);
         addToast('E&O Smart Memo Generated!', 'success');
-    } catch (e) {
-        addToast(`Failed to build memo`, 'danger');
+    } catch (error) {
+        addToast(`Failed to build memo: ${getErrorMessage(error)}`, 'danger');
     } finally {
         setIsOrganizingNotes(false);
     }
@@ -453,54 +370,19 @@ Return ONLY a JSON object in this exact shape:
   };
 
   const handleProcessNotesAi = async () => {
-      if (!stagedNotesFile) return;
-      
+      if (!stagedNotesFile || isProcessingNotesFile || isOrganizingNotes) return;
+
       setIsProcessingNotesFile(true);
       try {
-          const estTime = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
-          const API_KEY = process.env.API_KEY;
-          if (!API_KEY) throw new Error("API key not found.");
-          const ai = new GoogleGenAI({ apiKey: API_KEY });
-
-          const prompt = `
-            Act as a Senior E&O (Errors & Omissions) Compliance Expert at Bill Layne Insurance Agency.
-            
-            **CURRENT FULFILLMENT TIMESTAMP (EST):** ${estTime}
-
-            **SOURCE:**
-            The agent has provided these manual remarks/context:
-            ---
-            ${customerNotes || 'No manual remarks provided.'}
-            ---
-
-            **YOUR TASK:**
-            1. Parse the attached document (PDF or Image) for specific change requests, dates of loss, or carrier confirmations.
-            2. Merge this with the agent's remarks above.
-            3. Generate an "Audit-Ready CRM Memo" that protects the agent and agency.
-            
-            **MEMO REQUIREMENTS:**
-            - **REQUEST:** Summarize the client/third-party request found in the doc or notes.
-            - **ACTION:** Summarize the agent's work. If the agent indicates they fulfilled the request "now" or "today", use the **CURRENT FULFILLMENT TIMESTAMP** (${estTime}) for the log.
-            - **TIMESTAMPS:** Extract any specific dates/times found in the communication history.
-            - **DETAILS:** Carrier, Policy #, and specific endorsement/change details.
-            
-            Return ONLY a concise bulleted summary suitable for a CRM memo field.
-          `;
-
-          const response = await generateWithFallback(ai, {
-              contents: {
-                  parts: [
-                      { text: prompt },
-                      { inlineData: { mimeType: stagedNotesFile.mimeType, data: stagedNotesFile.data } }
-                  ]
-              }
+          const response = await requestAi({
+              task: 'extract-notes',
+              text: customerNotes,
+              customerName,
+              attachment: stagedNotesFile,
           });
-
-          if (!response.text) throw new Error("AI returned empty response.");
-          
-          const summary = response.text.trim();
+          const summary = response.trim();
           setCustomerNotes(prev => prev ? `${prev}\n\n--- AUDIT MEMO (${stagedNotesFile.name}) ---\n${summary}` : summary);
-          setStagedNotesFile(null);
+          setStagedNotesFile(current => current === stagedNotesFile ? null : current);
           addToast('Document audit completed!', 'success');
 
       } catch (error) {
@@ -515,7 +397,13 @@ Return ONLY a JSON object in this exact shape:
       if (!customerName.trim() || !customerNotes.trim()) return;
       const estTs = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
       const timestampedNotes = `[CRM MEMO LOGGED: ${estTs}]\n${customerNotes}`;
-      try { await navigator.clipboard.writeText(timestampedNotes); } catch (e) {}
+      try {
+          await navigator.clipboard.writeText(timestampedNotes);
+      } catch {
+          addToast('Could not copy the memo. Your draft is unchanged; copy it manually or retry.', 'danger');
+          return;
+      }
+      addToast('Memo copied. Paste it into Matrix; your draft is retained.', 'success');
       window.open(`https://agents.agencymatrix.com/#/customer/search?selection=${/\d+/.test(customerName) ? "Address" : "Name"}&query=${encodeURIComponent(customerName)}`, '_blank');
       handleNotesClose();
   };
@@ -523,6 +411,12 @@ Return ONLY a JSON object in this exact shape:
   const handleNotesClose = () => {
     setIsNotesModalOpen(false);
     setIsNotesMinimized(false);
+  };
+
+  const handleNotesDiscard = () => {
+    if (isOrganizingNotes || isProcessingNotesFile) return;
+    if ((customerName || customerNotes || stagedNotesFile) && !window.confirm('Discard this memo draft and its attachment?')) return;
+    handleNotesClose();
     setCustomerName('');
     setCustomerNotes('');
     setStagedNotesFile(null);
@@ -603,7 +497,7 @@ Return ONLY a JSON object in this exact shape:
                               >
                                   <i className="fa-solid fa-paperclip text-base group-hover/btn:scale-110 transition-transform"></i> Attach Staging
                               </button>
-                              <input type="file" multiple ref={propertyFileInputRef} onChange={handlePropertyFileChange} accept=".pdf,image/*" className="hidden" />
+                              <input type="file" multiple ref={propertyFileInputRef} onChange={handlePropertyFileChange} accept=".pdf,image/jpeg,image/png,image/webp,image/gif" className="hidden" />
                               
                               <div className="flex flex-wrap gap-2">
                                   {propertyFiles.map((f, i) => (
@@ -804,9 +698,9 @@ Return ONLY a JSON object in this exact shape:
                                 <i className={`fa-solid ${stagedNotesFile ? 'fa-file-circle-check' : 'fa-paperclip'}`}></i>
                                 {stagedNotesFile ? 'Source Ready' : 'Stage Doc'}
                             </button>
-                            <input type="file" ref={notesFileInputRef} onChange={handleNotesFileChange} accept=".pdf,image/*" className="hidden" />
+                            <input type="file" ref={notesFileInputRef} onChange={handleNotesFileChange} accept=".pdf,image/jpeg,image/png,image/webp,image/gif" className="hidden" />
                             
-                            <button onClick={handleOrganizeNotes} disabled={isOrganizingNotes} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-[#000000] text-white border-none rounded-xl flex items-center gap-2 hover:bg-[#2080a0] transition-all shadow-lg">
+                            <button onClick={handleOrganizeNotes} disabled={isOrganizingNotes || isProcessingNotesFile} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-[#000000] text-white border-none rounded-xl flex items-center gap-2 hover:bg-[#2080a0] transition-all shadow-lg">
                                 {isOrganizingNotes ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-wand-magic-sparkles"></i>}
                                 Build Audit
                             </button>
@@ -822,7 +716,7 @@ Return ONLY a JSON object in this exact shape:
                             <div className="flex items-center gap-2">
                                 <button 
                                     onClick={handleProcessNotesAi} 
-                                    disabled={isProcessingNotesFile}
+                                    disabled={isProcessingNotesFile || isOrganizingNotes}
                                     className="px-4 py-1.5 bg-[#2080a0] text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-[#1a6882] transition-all flex items-center gap-2 shadow-md"
                                 >
                                     {isProcessingNotesFile ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-shield-halved"></i>}
@@ -846,7 +740,7 @@ Return ONLY a JSON object in this exact shape:
                         <i className="fa-solid fa-share-from-square"></i>
                         Execute Sync & Matrix
                     </button>
-                    <button onClick={handleNotesClose} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest border-2 rounded-[20px] hover:bg-gray-50 transition-colors">Discard</button>
+                    <button onClick={handleNotesDiscard} disabled={isOrganizingNotes || isProcessingNotesFile} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest border-2 rounded-[20px] hover:bg-gray-50 transition-colors">Discard</button>
                 </div>
             </div>
         </Modal>
