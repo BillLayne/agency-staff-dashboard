@@ -6,6 +6,7 @@ import {
   previewTypeForFileName, previewHeadline, guessDocType, suggestFileName, finalizeFileName, validateDocFile,
   buildCustomerMessage, emailSubject, gmailComposeUrl, isSafeDocLinkUrl, normalizeDocLinkItem, normalizeViewStats,
   describeReceipt, firstNameOf, matchesDocQuery, staffTestUrl, MAX_DOC_BYTES, previewLinkTitle, sourceLabel, TEXT_PREVIEW_IMAGE,
+  isOlderThan, lastCustomerActivity,
 } from '../shared/docLinks.ts';
 
 // Synthetic values only -- never real credentials.
@@ -134,7 +135,7 @@ test('maps upstream failures to safe messages', async () => {
   assert.equal(garbage.status, 502);
   const thrown = await docLinksHandler(await ctx({ method: 'POST', body: pdfForm() }), async () => { throw new Error('network'); });
   assert.equal(thrown.status, 502);
-  assert.equal((await docLinksHandler(await ctx({ method: 'DELETE' }), recorder(jsonResponse({})).fetcher)).status, 405);
+  assert.equal((await docLinksHandler(await ctx({ method: 'PUT' }), recorder(jsonResponse({})).fetcher)).status, 405);
 });
 
 // --- receipts -------------------------------------------------------------
@@ -242,4 +243,53 @@ test('library sources and the text-message preview', () => {
   assert.equal(sourceLabel('command-center'), 'Command Center');
   assert.equal(previewLinkTitle('Roy-Meyreles-Proof-of-Insurance.pdf'), 'Your proof of insurance is ready | Bill Layne Insurance');
   assert.equal(TEXT_PREVIEW_IMAGE, '/doc-link-text-preview.jpg');
+});
+
+test('delete: Command Center only, same-origin, validated, forwarded with the token', async () => {
+  const { calls, fetcher } = recorder(jsonResponse({ ok: true, shortId: 'abcdef012345' }));
+  const ok = await docLinksHandler(await ctx({ method: 'DELETE', path: '/api/doc-links?id=ABCDEF012345' }), fetcher);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(await ok.json(), { ok: true, shortId: 'abcdef012345', alreadyGone: false });
+  assert.equal(calls[0].url, `${DEFAULT_DOC_LINK_API_BASE}/api/doc-links?id=abcdef012345`);
+  assert.equal(calls[0].init.method, 'DELETE');
+  assert.equal(new Headers(calls[0].init.headers).get('authorization'), `Bearer ${TOKEN}`);
+
+  const staff = recorder(jsonResponse({ ok: true }));
+  const refused = await docLinksHandler(await ctx({ method: 'DELETE', path: '/api/doc-links?id=abcdef012345', e: { ...env, APP_ID: 'agency-staff-dashboard' } }), staff.fetcher);
+  assert.equal(refused.status, 403);
+  assert.equal((await refused.json()).code, 'DELETE_NOT_ALLOWED');
+  assert.equal(staff.calls.length, 0, 'the staff dashboard never forwards a delete');
+
+  const crossSite = recorder(jsonResponse({ ok: true }));
+  assert.equal((await docLinksHandler(await ctx({ method: 'DELETE', path: '/api/doc-links?id=abcdef012345', headers: { origin: 'https://evil.test' } }), crossSite.fetcher)).status, 403);
+  assert.equal(crossSite.calls.length, 0);
+
+  const bad = recorder(jsonResponse({ ok: true }));
+  assert.equal((await docLinksHandler(await ctx({ method: 'DELETE', path: '/api/doc-links?id=../links' }), bad.fetcher)).status, 400);
+  assert.equal(bad.calls.length, 0);
+  assert.equal((await docLinksHandler(await ctx({ method: 'DELETE', path: '/api/doc-links?id=abcdef012345', signedIn: false }), bad.fetcher)).status, 401);
+
+  const gone = await docLinksHandler(await ctx({ method: 'DELETE', path: '/api/doc-links?id=abcdef012345' }), recorder(jsonResponse({ ok: true, alreadyGone: true })).fetcher);
+  assert.equal((await gone.json()).alreadyGone, true);
+  const failed = await docLinksHandler(await ctx({ method: 'DELETE', path: '/api/doc-links?id=abcdef012345' }), recorder(new Response('boom', { status: 500 })).fetcher);
+  assert.equal(failed.status, 502);
+});
+
+test('the library tells each dashboard whether it may delete', async () => {
+  const mine = await docLinksHandler(await ctx(), recorder(jsonResponse({ items: [good], cursor: null })).fetcher);
+  assert.equal((await mine.json()).canDelete, true);
+  const staffEnv = { ...env, APP_ID: 'agency-staff-dashboard' };
+  const staff = await docLinksHandler(await ctx({ e: staffEnv }), recorder(jsonResponse({ items: [good], cursor: null })).fetcher);
+  assert.equal((await staff.json()).canDelete, false);
+});
+
+test('age filter and last customer activity', () => {
+  const now = Date.parse('2026-10-01T12:00:00Z');
+  const item = normalizeDocLinkItem({ ...good, createdAt: '2026-05-01T12:00:00.000Z' });
+  assert.equal(isOlderThan(item, 0, now), true);
+  assert.equal(isOlderThan(item, 90, now), true);
+  assert.equal(isOlderThan(item, 180, now), false);
+  assert.equal(isOlderThan({ ...item, createdAt: '' }, 90, now), false, 'unknown dates are never swept up by an age filter');
+  assert.equal(lastCustomerActivity(null), null);
+  assert.equal(lastCustomerActivity(normalizeViewStats({ count: 1, lastViewedAt: '2026-09-01T00:00:00Z', openedCount: 1, lastOpenedAt: '2026-09-20T00:00:00Z' })), '2026-09-20T00:00:00.000Z');
 });

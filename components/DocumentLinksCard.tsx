@@ -2,11 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ToastMessage } from '../types';
 import {
   DOC_ACCEPT, DOC_TYPES, buildCustomerMessage, describeReceipt, emailSubject, extensionOf, finalizeFileName,
-  DOC_LINK_SOURCES, TEXT_PREVIEW_IMAGE, formatBytes, formatWhen, gmailComposeUrl, guessDocType, matchesDocQuery,
+  AGE_FILTERS, DOC_LINK_SOURCES, TEXT_PREVIEW_IMAGE, formatBytes, isOlderThan, lastCustomerActivity, formatWhen, gmailComposeUrl, guessDocType, matchesDocQuery,
   previewLinkTitle, previewTypeForFileName, sourceLabel, staffTestUrl, suggestFileName, tidyCustomerName, validateDocFile,
 } from '../shared/docLinks';
-import type { DocLinkItem, DocLinkSource, DocTypeId, DocViewStats, ReceiptTone } from '../shared/docLinks';
-import { createDocLink, fetchDocViews, listAllDocLinks } from '../services/docLinksClient';
+import type { AgeFilter, DocLinkItem, DocLinkSource, DocTypeId, DocViewStats, ReceiptTone } from '../shared/docLinks';
+import { createDocLink, deleteDocLink, fetchDocViews, listAllDocLinks } from '../services/docLinksClient';
 
 // Standalone twin of the SMS composer's document upload: PDF / Word / photo in,
 // branded docs.billlayneinsurance.com/d/<id> page out -- the exact same customer
@@ -20,6 +20,10 @@ type SourceFilter = 'all' | DocLinkSource;
 
 const buttonClass = 'inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10';
 const primaryClass = buttonClass + ' bg-[#003f87] !text-white hover:!bg-[#0076d3] dark:hover:!bg-[#0076d3]';
+const dangerClass = buttonClass + ' !border-rose-200 !text-rose-700 hover:!bg-rose-50 dark:!border-rose-400/30 dark:!text-rose-300 dark:hover:!bg-rose-400/10';
+const dangerSolidClass = buttonClass + ' !border-rose-600 bg-rose-600 !text-white hover:!bg-rose-700';
+const confirmBoxClass = 'w-full rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-100';
+const RECENT_MS = 30 * 86400000;
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-60 dark:border-white/20 dark:bg-white/5 dark:text-white';
 const labelClass = 'mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200';
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please retry.';
@@ -122,6 +126,17 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [visibleCount, setVisibleCount] = useState(40);
   const [views, setViews] = useState<Record<string, DocViewStats | null>>({});
+  // --- delete (Command Center only; the server says whether this dashboard may) ---
+  const [canDelete, setCanDelete] = useState(false);
+  const [ageFilter, setAgeFilter] = useState<AgeFilter>('any');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Record<string, boolean>>({});
+  const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkError, setBulkError] = useState('');
   const [viewsLoading, setViewsLoading] = useState<Record<string, boolean>>({});
   // --- clipboard ---
   const [copyState, setCopyState] = useState<{ value: string; error: boolean; message: string } | null>(null);
@@ -186,9 +201,9 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
     setLibraryLoading(true); setLibraryError(''); setLibraryProgress(0);
     if (refresh) { requestedViews.current.clear(); setViews({}); }
     try {
-      const items = await listAllDocLinks(controller.signal, count => { if (mounted.current) setLibraryProgress(count); });
+      const { items, canDelete: allowed } = await listAllDocLinks(controller.signal, count => { if (mounted.current) setLibraryProgress(count); });
       if (!mounted.current || controller.signal.aborted) return;
-      setLibrary(items); setLibraryLoaded(true);
+      setLibrary(items); setLibraryLoaded(true); setCanDelete(allowed);
     } catch (error) {
       if (!isAbort(error) && mounted.current) setLibraryError(errorText(error));
     } finally {
@@ -201,9 +216,11 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
     if (active && !libraryLoaded && !libraryLoading && !libraryError) void loadLibrary();
   }, [active, libraryLoaded, libraryLoading, libraryError, loadLibrary]);
 
-  const matches = useMemo(() => library.filter(item => (sourceFilter === 'all' || item.source === sourceFilter) && matchesDocQuery(item, query)), [library, sourceFilter, query]);
+  const ageDays = AGE_FILTERS.find(filter => filter.id === ageFilter)?.days || 0;
+  const matches = useMemo(() => library.filter(item => (sourceFilter === 'all' || item.source === sourceFilter)
+    && isOlderThan(item, ageDays) && matchesDocQuery(item, query)), [library, sourceFilter, ageDays, query]);
   const visible = useMemo(() => matches.slice(0, visibleCount), [matches, visibleCount]);
-  useEffect(() => { setVisibleCount(40); }, [query, sourceFilter]);
+  useEffect(() => { setVisibleCount(40); }, [query, sourceFilter, ageFilter]);
   // Receipts only for rows actually on screen.
   useEffect(() => {
     if (active && tab === 'library' && visible.length) void loadViews(visible.map(item => item.shortId));
@@ -243,11 +260,77 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
 
   const openGmail = (subject: string, body: string) => window.open(gmailComposeUrl(subject, body), '_blank', 'noopener,noreferrer');
 
+  const recentActivity = (id: string) => {
+    const last = lastCustomerActivity(views[id]);
+    return last && Date.now() - Date.parse(last) < RECENT_MS ? last : null;
+  };
+  const removeFromLibrary = (ids: string[]) => {
+    const gone = new Set(ids);
+    setLibrary(prev => prev.filter(item => !gone.has(item.shortId)));
+    setSelected(prev => prev.filter(id => !gone.has(id)));
+    setViews(prev => { const next = { ...prev }; ids.forEach(id => delete next[id]); return next; });
+  };
+  const deleteOne = async (item: DocLinkItem) => {
+    const id = item.shortId;
+    setDeletingIds(prev => ({ ...prev, [id]: true }));
+    setDeleteErrors(prev => { const next = { ...prev }; delete next[id]; return next; });
+    try {
+      await deleteDocLink(id);
+      if (!mounted.current) return;
+      removeFromLibrary([id]);
+      setConfirmDeleteId(null);
+      addToast(`Deleted ${item.fileName}.`, 'success');
+    } catch (error) {
+      if (mounted.current) setDeleteErrors(prev => ({ ...prev, [id]: errorText(error) }));
+    } finally {
+      if (mounted.current) setDeletingIds(prev => { const next = { ...prev }; delete next[id]; return next; });
+    }
+  };
+  // Four at a time; failures stay selected so one click retries just those.
+  const deleteSelected = async () => {
+    const ids = [...selected];
+    if (!ids.length || bulkProgress) return;
+    setBulkError('');
+    setBulkProgress({ done: 0, total: ids.length });
+    const removed: string[] = [];
+    const failed: string[] = [];
+    let next = 0;
+    let done = 0;
+    const work = async () => {
+      while (next < ids.length) {
+        const id = ids[next++];
+        try { await deleteDocLink(id); removed.push(id); } catch { failed.push(id); }
+        done += 1;
+        if (mounted.current) setBulkProgress({ done, total: ids.length });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, ids.length) }, work));
+    if (!mounted.current) return;
+    removeFromLibrary(removed);
+    setBulkProgress(null);
+    if (failed.length) {
+      setSelected(failed);
+      setBulkError(`${failed.length} of ${ids.length} could not be deleted and are still selected. Retry, or Cancel.`);
+      addToast(`Deleted ${removed.length}; ${failed.length} need a retry.`, 'warning');
+    } else {
+      setBulkConfirm(false);
+      setSelectMode(false);
+      addToast(`Deleted ${removed.length} document link${removed.length === 1 ? '' : 's'}.`, 'success');
+    }
+  };
+  const toggleSelected = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+
   const renderRow = (item: DocLinkItem) => {
     const kind = previewTypeForFileName(item.fileName);
     const typeForEmail = guessDocType(item.fileName);
-    return <article key={item.shortId} className="flex min-w-0 flex-col gap-2 border-b border-slate-200 py-3 sm:flex-row sm:items-center sm:gap-3 dark:border-white/10">
+    const id = item.shortId;
+    const isSelected = selected.includes(id);
+    const deleting = Boolean(deletingIds[id]);
+    const recent = recentActivity(id);
+    return <article key={id} className={'flex min-w-0 flex-col gap-2 border-b border-slate-200 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 dark:border-white/10' + (isSelected ? ' bg-sky-50/70 dark:bg-sky-400/5' : '')}>
       <div className="flex min-w-0 flex-1 items-start gap-3">
+        {selectMode && <input type="checkbox" checked={isSelected} onChange={() => toggleSelected(id)} aria-label={'Select ' + item.fileName}
+          className="mt-3 h-4 w-4 shrink-0 cursor-pointer accent-[#003f87]" />}
         <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white dark:border-white/15 dark:bg-white/5">
           <i className={'fa-solid text-lg ' + fileIcon(item.contentType || item.fileName)} aria-hidden="true" />
         </span>
@@ -277,7 +360,23 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
           onClick={() => openGmail(emailSubject(typeForEmail), buildCustomerMessage(typeForEmail, item.customer || '', item.url))}>
           <i className="fa-solid fa-envelope" aria-hidden="true" />Email
         </button>
+        {canDelete && !selectMode && <button type="button" className={dangerClass} title={'Delete ' + item.fileName + ' permanently'}
+          aria-expanded={confirmDeleteId === id} onClick={() => setConfirmDeleteId(current => current === id ? null : id)}>
+          <i className="fa-solid fa-trash-can" aria-hidden="true" />Delete
+        </button>}
       </div>
+      {confirmDeleteId === id && !selectMode && <div role="alertdialog" aria-label={'Confirm deleting ' + item.fileName} className={confirmBoxClass + ' sm:basis-full'}>
+        <p className="m-0 font-semibold">Delete this document permanently?</p>
+        <p className="m-0 mt-1">The file is removed, and anyone who opens the link will see &ldquo;This document is no longer available&rdquo; with your phone number. This can&rsquo;t be undone.</p>
+        {recent && <p className="m-0 mt-2 font-semibold"><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> The customer last opened it {formatWhen(recent)} &mdash; make sure they no longer need it.</p>}
+        {deleteErrors[id] && <p role="alert" className="m-0 mt-2 font-semibold">{deleteErrors[id]}</p>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" autoFocus className={buttonClass + ' bg-white dark:bg-transparent'} disabled={deleting} onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+          <button type="button" className={dangerSolidClass} disabled={deleting} onClick={() => void deleteOne(item)}>
+            <i className={'fa-solid ' + (deleting ? 'fa-spinner fa-spin' : 'fa-trash-can')} aria-hidden="true" />{deleting ? 'Deleting…' : 'Delete permanently'}
+          </button>
+        </div>
+      </div>}
     </article>;
   };
 
@@ -403,11 +502,51 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
         {[{ id: 'all' as SourceFilter, label: 'All' }, ...DOC_LINK_SOURCES].map(({ id, label }) =>
           <button key={id} type="button" aria-pressed={sourceFilter === id} onClick={() => setSourceFilter(id)} className={sourceFilter === id ? primaryClass : buttonClass}>{label}</button>)}
       </div>
+      <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="How old">
+        {AGE_FILTERS.map(filter => <button key={filter.id} type="button" aria-pressed={ageFilter === filter.id} onClick={() => setAgeFilter(filter.id)}
+          className={ageFilter === filter.id ? primaryClass : buttonClass}>{filter.label}</button>)}
+      </div>
       <p className="my-2 text-xs text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
         {libraryLoading ? `Loading document links… ${libraryProgress}` : libraryLoaded ? `${matches.length} of ${library.length} document links` : 'Library not loaded'}
       </p>
       {libraryError && <div role="alert" className="my-2 text-sm text-rose-700 dark:text-rose-300"><p className="m-0">{libraryError}</p>
         <button type="button" className={buttonClass + ' mt-2'} disabled={libraryLoading} onClick={() => void loadLibrary(true)}><i className="fa-solid fa-rotate-right" aria-hidden="true" />Retry</button></div>}
+      {canDelete && libraryLoaded && library.length > 0 && <div className="mb-2 flex flex-wrap items-center gap-2">
+        <button type="button" className={selectMode ? primaryClass : buttonClass} aria-pressed={selectMode}
+          onClick={() => { setSelectMode(mode => !mode); setSelected([]); setBulkConfirm(false); setBulkError(''); setConfirmDeleteId(null); }}>
+          <i className={'fa-solid ' + (selectMode ? 'fa-check' : 'fa-list-check')} aria-hidden="true" />{selectMode ? 'Done' : 'Select to delete'}
+        </button>
+        {selectMode && <>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{selected.length} selected</span>
+          <button type="button" className={buttonClass} disabled={!matches.length || Boolean(bulkProgress)}
+            onClick={() => setSelected(prev => [...new Set([...prev, ...matches.map(item => item.shortId)])])}>Select all {matches.length} shown</button>
+          {selected.length > 0 && <button type="button" className={buttonClass} disabled={Boolean(bulkProgress)} onClick={() => setSelected([])}>Clear</button>}
+          <button type="button" className={dangerClass} disabled={!selected.length || Boolean(bulkProgress)} onClick={() => setBulkConfirm(true)}>
+            <i className="fa-solid fa-trash-can" aria-hidden="true" />Delete selected ({selected.length})
+          </button>
+        </>}
+      </div>}
+      {bulkConfirm && selectMode && (() => {
+        const chosen = library.filter(item => selected.includes(item.shortId));
+        const recentCount = chosen.filter(item => recentActivity(item.shortId)).length;
+        return <div role="alertdialog" aria-labelledby="doc-bulk-title" className={confirmBoxClass + ' mb-3'}>
+          <p id="doc-bulk-title" className="m-0 font-semibold">Permanently delete {selected.length} document link{selected.length === 1 ? '' : 's'}?</p>
+          <p className="m-0 mt-1">Each file is removed, and anyone who opens one of these links will see &ldquo;This document is no longer available.&rdquo; This can&rsquo;t be undone.</p>
+          <ul className="m-0 mt-2 list-disc pl-5 text-xs">
+            {chosen.slice(0, 5).map(item => <li key={item.shortId} className="truncate">{item.fileName}</li>)}
+            {chosen.length > 5 && <li>&hellip;and {chosen.length - 5} more</li>}
+          </ul>
+          {recentCount > 0 && <p className="m-0 mt-2 font-semibold"><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {recentCount} of these {recentCount === 1 ? 'was' : 'were'} opened by a customer in the last 30 days.</p>}
+          {bulkProgress && <p role="status" className="m-0 mt-2">Deleting {bulkProgress.done} of {bulkProgress.total}&hellip;</p>}
+          {bulkError && <p role="alert" className="m-0 mt-2 font-semibold">{bulkError}</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" autoFocus className={buttonClass + ' bg-white dark:bg-transparent'} disabled={Boolean(bulkProgress)} onClick={() => { setBulkConfirm(false); setBulkError(''); }}>Cancel</button>
+            <button type="button" className={dangerSolidClass} disabled={Boolean(bulkProgress) || !selected.length} onClick={() => void deleteSelected()}>
+              <i className={'fa-solid ' + (bulkProgress ? 'fa-spinner fa-spin' : 'fa-trash-can')} aria-hidden="true" />{bulkProgress ? 'Deleting…' : `Delete ${selected.length} permanently`}
+            </button>
+          </div>
+        </div>;
+      })()}
       {libraryLoaded && <div className="max-h-[38rem] min-w-0 overflow-y-auto overscroll-contain pr-1 custom-scrollbar" aria-label="Document links">
         {visible.map(renderRow)}
         {!matches.length && <p className="py-6 text-sm text-slate-500 dark:text-slate-400">{library.length ? 'No document links match this search.' : 'No document links yet. Create one from the Create Link tab.'}</p>}

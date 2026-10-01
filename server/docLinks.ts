@@ -61,6 +61,10 @@ async function upstreamError(response: Response, fallback: string) {
 
 const CURSOR_PATTERN = /^[A-Za-z0-9_\-.=+/]{1,1024}$/;
 
+// Permanent delete is reserved for Bill's Agency Command Center (Bill,
+// 2026-10-01). This same file runs in the staff dashboard, which refuses.
+export const canDeleteDocLinks = (env: DocLinksEnv) => appId(env) !== 'agency-staff-dashboard';
+
 export async function docLinksHandler(context: PagesContext<DocLinksEnv>, fetcher: typeof fetch = fetch) {
   const { request, env } = context;
   const denied = await requireSession(request, env);
@@ -79,13 +83,30 @@ export async function docLinksHandler(context: PagesContext<DocLinksEnv>, fetche
       const body = await response.json() as { items?: unknown; cursor?: unknown };
       const items = (Array.isArray(body.items) ? body.items : []).map(normalizeDocLinkItem).filter(Boolean);
       const next = typeof body.cursor === 'string' && CURSOR_PATTERN.test(body.cursor) ? body.cursor : null;
-      return json({ items, cursor: next });
+      return json({ items, cursor: next, canDelete: canDeleteDocLinks(env) });
     } catch {
       return json({ error: 'Could not reach the document library. Please retry.' }, 502);
     }
   }
 
-  if (request.method !== 'POST') return json({ error: 'Use GET to list documents or POST to create a link.' }, 405);
+  if (request.method === 'DELETE') {
+    if (!canDeleteDocLinks(env)) return json({ error: 'Only the Agency Command Center can delete document links.', code: 'DELETE_NOT_ALLOWED' }, 403);
+    if (!target) return notConfigured();
+    const id = (new URL(request.url).searchParams.get('id') || '').toLowerCase();
+    if (!/^[a-f0-9]{12}$/.test(id)) return json({ error: 'Invalid document id.' }, 400);
+    try {
+      const response = await callUpstream(fetcher, `${target.base}/api/doc-links?id=${id}`, {
+        method: 'DELETE', headers: { authorization: `Bearer ${target.token}`, accept: 'application/json' },
+      });
+      if (!response.ok) return upstreamError(response, 'The document could not be deleted. Nothing changed for that link; please retry.');
+      const body = await response.json() as { alreadyGone?: unknown };
+      return json({ ok: true, shortId: id, alreadyGone: body.alreadyGone === true });
+    } catch {
+      return json({ error: 'Could not reach the document service. Please retry the delete.' }, 502);
+    }
+  }
+
+  if (request.method !== 'POST') return json({ error: 'Use GET to list documents, POST to create a link or DELETE to remove one.' }, 405);
   if (!target) return notConfigured();
   if (Number(request.headers.get('content-length') || 0) > MAX_BODY_BYTES) return json({ error: 'Document links accept files up to 15 MB.' }, 413);
   if (!(request.headers.get('content-type') || '').toLowerCase().startsWith('multipart/form-data')) return json({ error: 'Send the document as a file upload.' }, 415);

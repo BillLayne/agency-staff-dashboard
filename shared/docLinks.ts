@@ -267,6 +267,26 @@ export function formatBytes(size: number | null) {
   return size >= 1024 * 1024 ? `${(size / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
+// Library age filter -- for clearing out documents nobody needs any more.
+export type AgeFilter = 'any' | '90' | '180' | '365';
+export const AGE_FILTERS: { id: AgeFilter; label: string; days: number }[] = [
+  { id: 'any', label: 'Any age', days: 0 },
+  { id: '90', label: 'Older than 3 months', days: 90 },
+  { id: '180', label: 'Older than 6 months', days: 180 },
+  { id: '365', label: 'Older than 1 year', days: 365 },
+];
+export function isOlderThan(item: DocLinkItem, days: number, now = Date.now()) {
+  if (!days) return true;
+  const created = Date.parse(item.createdAt);
+  return Number.isFinite(created) && now - created > days * 86400000;
+}
+/** Most recent customer activity (view, open or save), if any. */
+export function lastCustomerActivity(stats: DocViewStats | null | undefined) {
+  if (!stats) return null;
+  const times = [stats.lastViewedAt, stats.lastOpenedAt, stats.lastDownloadedAt].map(value => (value ? Date.parse(value) : NaN)).filter(Number.isFinite);
+  return times.length ? new Date(Math.max(...times)).toISOString() : null;
+}
+
 export function matchesDocQuery(item: DocLinkItem, query: string) {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return true;

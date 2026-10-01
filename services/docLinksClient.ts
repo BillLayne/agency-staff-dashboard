@@ -35,10 +35,14 @@ export async function createDocLink(file: File, customer: string, signal?: Abort
   return item;
 }
 
-/** Every page of the library, newest first (follows the cursor like the image library does). */
-export async function listAllDocLinks(signal?: AbortSignal, onPage?: (count: number) => void): Promise<DocLinkItem[]> {
+/**
+ * Every page of the library, newest first (follows the cursor like the image
+ * library does), plus whether this dashboard may delete (decided server-side).
+ */
+export async function listAllDocLinks(signal?: AbortSignal, onPage?: (count: number) => void): Promise<{ items: DocLinkItem[]; canDelete: boolean }> {
   const items: DocLinkItem[] = [];
   const seen = new Set<string>();
+  let canDelete = false;
   let cursor = '';
   for (let page = 0; page < 25; page += 1) {
     const body = await request(`/api/doc-links${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { signal });
@@ -47,10 +51,17 @@ export async function listAllDocLinks(signal?: AbortSignal, onPage?: (count: num
       if (item && !seen.has(item.shortId)) { seen.add(item.shortId); items.push(item); }
     }
     onPage?.(items.length);
+    canDelete = body.canDelete === true;
     cursor = typeof body.cursor === 'string' ? body.cursor : '';
     if (!cursor) break;
   }
-  return items;
+  return { items, canDelete };
+}
+
+/** Permanently delete one document link (file, link and receipts). Safe to retry. */
+export async function deleteDocLink(shortId: string, signal?: AbortSignal): Promise<{ alreadyGone: boolean }> {
+  const body = await request(`/api/doc-links?id=${encodeURIComponent(shortId)}`, { method: 'DELETE', signal });
+  return { alreadyGone: body.alreadyGone === true };
 }
 
 export async function fetchDocViews(ids: string[], signal?: AbortSignal): Promise<Record<string, DocViewStats>> {
