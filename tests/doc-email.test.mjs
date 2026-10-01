@@ -65,6 +65,26 @@ test('the gate catches every regression it exists for', () => {
   }
 });
 
+// Bill, 2026-10-01: texts go to the agency text line (336) 827-9065; the office
+// (336) 835-1993 is for calls only. Checked on what the customer reads, independent of the gate.
+test('texts go to (336) 827-9065; the office line (336) 835-1993 is calls only', () => {
+  const html = buildDocEmailHtml(base);
+  const body = html.slice(html.indexOf('<body'));
+  // One entry per visible line or "&middot;"-separated clause, tags stripped.
+  const clauses = body.split(/<br\s*\/?>|<\/(?:div|td|p)>|&middot;/i)
+    .map(part => part.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  assert.ok(clauses.includes('Call (336) 835-1993'), 'calls go to the office');
+  assert.ok(clauses.includes('Text (336) 827-9065'), 'sign-off: Call ... / Text (336) 827-9065');
+  assert.ok(clauses.includes('Prefer to text? (336) 827-9065'), 'CTA: Prefer to text? (336) 827-9065');
+  for (const clause of clauses.filter(c => /\btext/i.test(c))) {
+    assert.doesNotMatch(clause, /835[\s.)-]*1993/, `a "text" line names the office number: ${clause}`);
+  }
+  const sms = [...html.matchAll(/href="sms:([^"]*)"/g)].map(m => m[1]);
+  const tel = [...html.matchAll(/href="tel:([^"]*)"/g)].map(m => m[1]);
+  assert.deepEqual(sms, ['+13368279065', '+13368279065'], 'every text link goes to the text line');
+  assert.ok(tel.length > 0 && tel.every(n => n === '+13368351993'), 'every call link goes to the office');
+});
+
 // ------------------------------------------------------------- server: file proxy
 
 const TOKEN = 'synthetic-doc-link-token-for-tests-only-0123456789abcdef';
