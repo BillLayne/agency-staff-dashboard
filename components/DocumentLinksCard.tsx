@@ -4,6 +4,7 @@ import {
   DOC_ACCEPT, DOC_TYPES, buildCustomerMessage, describeReceipt, emailSubject, extensionOf, finalizeFileName,
   AGE_FILTERS, DOC_LINK_SOURCES, TEXT_PREVIEW_IMAGE, formatBytes, isOlderThan, lastCustomerActivity, formatWhen, gmailComposeUrl, guessDocType, matchesDocQuery,
   previewLinkTitle, previewTypeForFileName, sourceLabel, staffTestUrl, suggestFileName, tidyCustomerName, validateDocFile,
+  DOC_RETENTION_DAYS, autoDeleteAt, describeAutoDelete,
 } from '../shared/docLinks';
 import type { AgeFilter, DocLinkItem, DocLinkSource, DocTypeId, DocViewStats, ReceiptTone } from '../shared/docLinks';
 import { createDocLink, deleteDocLink, fetchDocViews, listAllDocLinks } from '../services/docLinksClient';
@@ -54,6 +55,17 @@ const ReceiptPill: React.FC<{ stats: DocViewStats | null | undefined; loading?: 
   return <span title={receipt.title} className={'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ' + RECEIPT_STYLES[receipt.tone]}>
     <i className={'fa-solid ' + (loading ? 'fa-spinner fa-spin' : receipt.tone === 'saved' ? 'fa-download' : receipt.tone === 'opened' ? 'fa-file-circle-check' : 'fa-eye')} aria-hidden="true" />
     <span className="truncate">{receipt.label}</span>
+  </span>;
+};
+
+// The automatic-cleanup date, once the row's receipts have loaded (the rule needs the last open).
+const AutoDeleteNote: React.FC<{ item: DocLinkItem; stats: DocViewStats | null | undefined }> = ({ item, stats }) => {
+  if (stats === undefined) return null;
+  const note = describeAutoDelete(autoDeleteAt(item, stats));
+  if (!note) return null;
+  return <span title={`Deleted automatically ${DOC_RETENTION_DAYS} days after the customer last opens it (or ${DOC_RETENTION_DAYS} days after it was made, if never opened).`}
+    className={'inline-flex items-center gap-1 text-xs ' + (note.soon ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400')}>
+    <i className="fa-solid fa-hourglass-half" aria-hidden="true" />{note.label}
   </span>;
 };
 
@@ -359,7 +371,10 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
               {sourceLabel(item.source)}
             </span>
           </p>
-          <div className="mt-1.5"><ReceiptPill stats={views[item.shortId]} loading={viewsLoading[item.shortId]} /></div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <ReceiptPill stats={views[item.shortId]} loading={viewsLoading[item.shortId]} />
+            <AutoDeleteNote item={item} stats={views[item.shortId]} />
+          </div>
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap gap-1.5 pl-[3.25rem] sm:pl-0">
@@ -440,7 +455,10 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
           <button type="button" className={buttonClass} onClick={() => void copyText(message, 'Message copied.')}><i className="fa-solid fa-message" aria-hidden="true" />Copy Message</button>
           <button type="button" className={buttonClass} onClick={() => void loadViews([created.item.shortId], true)} title="Check whether the customer has opened it"><i className="fa-solid fa-rotate" aria-hidden="true" />Check Receipt</button>
         </div>
-        <div className="mt-3"><ReceiptPill stats={views[created.item.shortId]} loading={viewsLoading[created.item.shortId]} /></div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <ReceiptPill stats={views[created.item.shortId]} loading={viewsLoading[created.item.shortId]} />
+          <span className="text-xs text-slate-500 dark:text-slate-400">Deletes automatically {DOC_RETENTION_DAYS} days after the customer last opens it.</span>
+        </div>
         <label htmlFor="doc-message" className={labelClass + ' mt-4'}>Message to send with the link <span className="font-normal text-slate-500">(edit before emailing or copying)</span></label>
         <textarea id="doc-message" rows={8} value={message} onChange={event => setMessage(event.target.value)} className={fieldClass + ' !text-sm leading-relaxed'} />
         <button type="button" className={primaryClass + ' mt-4'} onClick={clearForm}><i className="fa-solid fa-plus" aria-hidden="true" />Create Another Link</button>
@@ -529,6 +547,10 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
       </div>
       <p className="my-2 text-xs text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
         {libraryLoading ? `Loading document links… ${libraryProgress}` : libraryLoaded ? `${matches.length} of ${library.length} document links` : 'Library not loaded'}
+      </p>
+      <p className="-mt-1 mb-2 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <i className="fa-solid fa-hourglass-half mt-0.5" aria-hidden="true" />
+        <span>Automatic cleanup: a document is deleted {DOC_RETENTION_DAYS} days after the customer last opens it, or {DOC_RETENTION_DAYS} days after it was made if it is never opened.</span>
       </p>
       {libraryError && <div role="alert" className="my-2 text-sm text-rose-700 dark:text-rose-300"><p className="m-0">{libraryError}</p>
         <button type="button" className={buttonClass + ' mt-2'} disabled={libraryLoading} onClick={() => void loadLibrary(true)}><i className="fa-solid fa-rotate-right" aria-hidden="true" />Retry</button></div>}

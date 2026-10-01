@@ -6,7 +6,7 @@ import {
   previewTypeForFileName, previewHeadline, guessDocType, suggestFileName, finalizeFileName, validateDocFile,
   buildCustomerMessage, emailSubject, gmailComposeUrl, isSafeDocLinkUrl, normalizeDocLinkItem, normalizeViewStats,
   describeReceipt, firstNameOf, matchesDocQuery, staffTestUrl, MAX_DOC_BYTES, previewLinkTitle, sourceLabel, TEXT_PREVIEW_IMAGE,
-  isOlderThan, lastCustomerActivity,
+  isOlderThan, lastCustomerActivity, autoDeleteAt, describeAutoDelete, DOC_RETENTION_DAYS,
 } from '../shared/docLinks.ts';
 
 // Synthetic values only -- never real credentials.
@@ -292,4 +292,26 @@ test('age filter and last customer activity', () => {
   assert.equal(isOlderThan({ ...item, createdAt: '' }, 90, now), false, 'unknown dates are never swept up by an age filter');
   assert.equal(lastCustomerActivity(null), null);
   assert.equal(lastCustomerActivity(normalizeViewStats({ count: 1, lastViewedAt: '2026-09-01T00:00:00Z', openedCount: 1, lastOpenedAt: '2026-09-20T00:00:00Z' })), '2026-09-20T00:00:00.000Z');
+});
+
+test('auto-delete date mirrors the Worker: 90 days after the last open, receipts grace for old documents', () => {
+  const DAY = 86400000;
+  const iso = ms => new Date(ms).toISOString();
+  assert.equal(DOC_RETENTION_DAYS, 90);
+  const made = Date.UTC(2026, 9, 1);
+  assert.equal(autoDeleteAt({ createdAt: iso(made) }, null), made + 90 * DAY, 'never opened: 90 days after it was made');
+  const opened = made + 20 * DAY;
+  const stats = { count: 2, firstViewedAt: iso(made + DAY), lastViewedAt: iso(opened), openedCount: 0, lastOpenedAt: null, downloadedCount: 0, lastDownloadedAt: null };
+  assert.equal(autoDeleteAt({ createdAt: iso(made) }, stats), opened + 90 * DAY, 'opened: 90 days after the last open');
+  // Made before receipts existed (2026-07-06): counts as opened no earlier than July 7 -> Oct 5.
+  assert.equal(autoDeleteAt({ createdAt: iso(Date.UTC(2026, 4, 1)) }, null), Date.UTC(2026, 6, 7) + 90 * DAY);
+  assert.equal(autoDeleteAt({ createdAt: 'not a date' }, null), null);
+
+  const now = Date.UTC(2026, 9, 1, 12);
+  assert.deepEqual(describeAutoDelete(now - 1, now), { label: 'Deleting at the next cleanup', soon: true });
+  assert.deepEqual(describeAutoDelete(now + 1 * DAY, now), { label: 'Auto-deletes in 1 day', soon: true });
+  assert.deepEqual(describeAutoDelete(now + 10 * DAY, now), { label: 'Auto-deletes in 10 days', soon: true });
+  assert.equal(describeAutoDelete(now + 60 * DAY, now).soon, false);
+  assert.match(describeAutoDelete(now + 60 * DAY, now).label, /^Auto-deletes [A-Z][a-z]{2} \d{1,2}, 2026$/);
+  assert.equal(describeAutoDelete(null, now), null);
 });

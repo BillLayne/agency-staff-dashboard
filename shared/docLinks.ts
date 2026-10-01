@@ -287,6 +287,31 @@ export function lastCustomerActivity(stats: DocViewStats | null | undefined) {
   return times.length ? new Date(Math.max(...times)).toISOString() : null;
 }
 
+/**
+ * When the document service deletes a link on its own (SMS Worker `runDocumentRetention`,
+ * every 3 hours): 90 days after the customer last opened it, or 90 days after it was made if
+ * never opened. Receipts began 2026-07-06, so an older document counts as opened no earlier
+ * than 2026-07-07. Mirrors the Worker -- change both together.
+ */
+export const DOC_RETENTION_DAYS = 90;
+const DOC_RECEIPTS_SINCE_MS = Date.UTC(2026, 6, 7);
+
+export function autoDeleteAt(item: Pick<DocLinkItem, 'createdAt'>, stats: DocViewStats | null | undefined): number | null {
+  const created = Date.parse(item.createdAt);
+  if (!Number.isFinite(created)) return null;
+  const last = lastCustomerActivity(stats);
+  const floor = created < DOC_RECEIPTS_SINCE_MS ? DOC_RECEIPTS_SINCE_MS : created;
+  return Math.max(floor, last ? Date.parse(last) : 0) + DOC_RETENTION_DAYS * 86400000;
+}
+
+export function describeAutoDelete(at: number | null, now = Date.now()): { label: string; soon: boolean } | null {
+  if (at === null) return null;
+  const days = Math.ceil((at - now) / 86400000);
+  if (days <= 0) return { label: 'Deleting at the next cleanup', soon: true };
+  if (days <= 14) return { label: `Auto-deletes in ${days} day${days === 1 ? '' : 's'}`, soon: true };
+  return { label: 'Auto-deletes ' + new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), soon: false };
+}
+
 export function matchesDocQuery(item: DocLinkItem, query: string) {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return true;
