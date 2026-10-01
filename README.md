@@ -38,6 +38,16 @@ npm run build
 - Shared code: `server/auth.ts`, `server/contacts.ts`, `server/ai.ts`, `services/contactDirectory.ts`, `hooks/useCompanyContacts.ts`, and `components/ContactLookup.tsx`. Equivalent files exist in `Customer-Matrix-Pro`; keep contracts and validation aligned. The contact legacy storage key differs intentionally.
 - Existing staff structure and launcher inventory remain unchanged. The No Loss quick action now matches the existing e-signature launcher destination.
 
+## October 1, 2026: Document Links (Docs mode)
+
+Third workspace mode, **Docs** (header switch + "Document Links" tile): upload a PDF, Word file or photo (up to 15 MB) and get a branded `https://docs.billlayneinsurance.com/d/<id>` link to text or email — no SMS conversation needed. Same tool as the Agency Command Center's Docs workspace; the files are identical copies of that repo's (`components/DocumentLinksCard.tsx`, `shared/docLinks.ts`, `services/docLinksClient.ts`, `server/docLinks.ts`, `functions/api/doc-links/`, `tests/doc-links.test.mjs`) — change them there first, then copy.
+
+- Documents live in the SMS Command Center Worker and open on its existing customer page (PDF preview, Download, Share, Call/Text/Message). Text-message previews use the SAME picture as SMS document links; `public/doc-link-text-preview.jpg` is only a display copy.
+- Browser → this dashboard's `/api/doc-links` Pages Functions (signed session + same-origin) → Worker with `DOC_LINK_TOKEN`, a **production-only** Pages secret scoped on the Worker to document routes only. Preview deployments deliberately have no token ("not set up").
+- Uploads are tagged `staff-dashboard` server-side (from `APP_ID`), so the shared library shows a "Staff Dashboard" badge. The Library lists every document link (SMS, Command Center, Staff Dashboard).
+- Docs stays mounted while hidden, so switching modes never interrupts an upload.
+- Local check: `npm run build`, then `node --experimental-strip-types scripts/preview-doc-links.mjs` and open `http://localhost:8789/__preview-login` (real auth + proxy, fake document service, synthetic credentials).
+
 ## Release Procedure
 
 Only publish after explicit authorization. Run lint, tests, build, then commit/push approved files and deploy with `npx wrangler pages deploy dist --project-name agency-staff-dashboard --branch main`. A Git push alone is not deployment.

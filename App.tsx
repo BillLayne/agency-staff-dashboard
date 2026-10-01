@@ -1,10 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import ProgramLauncher from './components/ProgramLauncher';
 import SearchCard from './components/SearchCard';
+import DocumentLinksCard from './components/DocumentLinksCard';
 import Toast from './components/Toast';
 import type { ToastMessage } from './types';
 
-type WorkspaceMode = 'search' | 'tools';
+type WorkspaceMode = 'search' | 'tools' | 'docs';
+const MODE_ICONS: Record<WorkspaceMode, string> = { search: 'fa-magnifying-glass', tools: 'fa-table-cells-large', docs: 'fa-file-pdf' };
 
 const quickActions = [
   {
@@ -107,7 +109,7 @@ export default function App() {
 
           <div className="flex shrink-0 items-center gap-2">
             <div className="hidden rounded-[1rem] border border-slate-200 bg-slate-100 p-1 sm:flex">
-              {(['search', 'tools'] as WorkspaceMode[]).map((mode) => (
+              {(['search', 'tools', 'docs'] as WorkspaceMode[]).map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -118,7 +120,7 @@ export default function App() {
                       : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
-                  <i className={`fa-solid ${mode === 'search' ? 'fa-magnifying-glass' : 'fa-table-cells-large'} text-[11px]`}></i>
+                  <i className={`fa-solid ${MODE_ICONS[mode]} text-[11px]`}></i>
                   {mode}
                 </button>
               ))}
@@ -144,7 +146,7 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-[1460px] px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-        <section className="mb-4 grid gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-58px_rgba(15,23,42,0.75)] md:grid-cols-2">
+        <section className="mb-4 grid gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-58px_rgba(15,23,42,0.75)] md:grid-cols-3">
           <button
             type="button"
             onClick={() => setActiveMode('search')}
@@ -181,6 +183,26 @@ export default function App() {
               <span className="block text-sm font-black uppercase tracking-[0.18em]">Tools</span>
               <span className={`mt-1 block text-sm font-semibold ${activeMode === 'tools' ? 'text-slate-300' : 'text-slate-400'}`}>
                 Launchers, forms, property utilities
+              </span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveMode('docs')}
+            className={`flex min-h-[74px] items-center gap-4 rounded-[1.1rem] px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30 ${
+              activeMode === 'docs'
+                ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
+                : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[0.95rem] ${activeMode === 'docs' ? 'bg-[#0076d3]' : 'bg-white text-slate-400'}`}>
+              <i className="fa-solid fa-file-pdf"></i>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-black uppercase tracking-[0.18em]">Document Links</span>
+              <span className={`mt-1 block text-sm font-semibold ${activeMode === 'docs' ? 'text-slate-300' : 'text-slate-400'}`}>
+                PDF or photo to a branded link
               </span>
             </span>
           </button>
@@ -230,7 +252,7 @@ export default function App() {
               </div>
             </section>
           </div>
-        ) : (
+        ) : activeMode === 'tools' ? (
           <section className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_-60px_rgba(15,23,42,0.8)] sm:p-5">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -249,7 +271,12 @@ export default function App() {
             </div>
             <ProgramLauncher addToast={addToast} />
           </section>
-        )}
+        ) : null}
+
+        {/* Kept mounted (just hidden) so switching modes never interrupts an upload or loses the form. */}
+        <div hidden={activeMode !== 'docs'} className="overflow-hidden rounded-[1.35rem] border border-slate-200 shadow-[0_24px_70px_-60px_rgba(15,23,42,0.8)]">
+          <DocumentLinksCard active={activeMode === 'docs'} addToast={addToast} />
+        </div>
       </main>
 
       {toastStack}
