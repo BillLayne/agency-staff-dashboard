@@ -13,7 +13,7 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { authenticationMiddleware, createSession, cookieName, json } from '../server/auth.ts';
-import { docLinksHandler, docLinkViewsHandler } from '../server/docLinks.ts';
+import { docLinksHandler, docLinkViewsHandler, docLinkFileHandler } from '../server/docLinks.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
@@ -47,15 +47,25 @@ const views = {
   [library[1].shortId]: { count: 2, firstViewedAt: daysAgo(2), lastViewedAt: daysAgo(1.5), openedCount: 1, lastOpenedAt: daysAgo(1.5) },
   [library[2].shortId]: { count: 1, firstViewedAt: daysAgo(3), lastViewedAt: daysAgo(3) },
 };
+const fileBytes = new Map();
 async function fakeDocumentService(url, init = {}) {
   await new Promise(resolve => setTimeout(resolve, 350)); // feel a little like a network call
   const target = new URL(url);
+  // The real /d/<id>/open route is public (it is the customer's own link), so it
+  // is answered before the token check - the file proxy never sends the token.
+  const open = /^\/d\/([a-f0-9]{12})\/open$/.exec(target.pathname);
+  if (open) {
+    if (!library.some(item => item.shortId === open[1])) return new Response('Not found', { status: 404 });
+    const stored = fileBytes.get(open[1]) || new TextEncoder().encode('%PDF-1.4 synthetic sample ' + open[1]);
+    return new Response(stored, { headers: { 'content-type': 'application/pdf', 'content-length': String(stored.length) } });
+  }
   if (new Headers(init.headers).get('authorization') !== `Bearer ${env.DOC_LINK_TOKEN}`) return json({ error: 'Unauthorized' }, 401);
   if (target.pathname === '/api/doc-links' && init.method === 'POST') {
     const file = init.body.get('file');
     const shortId = hex();
     const item = { shortId, url: `https://docs.billlayneinsurance.com/d/${shortId}`, fileName: file.name, contentType: file.type || 'application/pdf', createdAt: new Date().toISOString(), source: init.body.get('source') || 'command-center', customer: init.body.get('customer') || null, size: file.size };
     library.unshift(item);
+    fileBytes.set(shortId, new Uint8Array(await file.arrayBuffer()));
     return json(item, 201);
   }
   if (target.pathname === '/api/doc-links') return json({ items: library, cursor: null });
@@ -81,6 +91,7 @@ createServer(async (incoming, outgoing) => {
     const next = async () => {
       if (url.pathname === '/api/doc-links') return docLinksHandler({ request, env, next }, fakeDocumentService);
       if (url.pathname === '/api/doc-links/views') return docLinkViewsHandler({ request, env, next }, fakeDocumentService);
+      if (url.pathname === '/api/doc-links/file') return docLinkFileHandler({ request, env, next }, fakeDocumentService);
       if (url.pathname.startsWith('/api/')) return json({ error: 'This local Docs preview does not connect to contacts, images or AI.' }, 503);
       if (!['GET', 'HEAD'].includes(request.method)) return json({ error: 'Not available in this preview.' }, 405);
       const file = path.resolve(dist, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));

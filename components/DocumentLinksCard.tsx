@@ -7,6 +7,8 @@ import {
 } from '../shared/docLinks';
 import type { AgeFilter, DocLinkItem, DocLinkSource, DocTypeId, DocViewStats, ReceiptTone } from '../shared/docLinks';
 import { createDocLink, deleteDocLink, fetchDocViews, listAllDocLinks } from '../services/docLinksClient';
+import DocEmailDialog from './DocEmailDialog';
+import type { DocEmailTarget } from './DocEmailDialog';
 
 // Standalone twin of the SMS composer's document upload: PDF / Word / photo in,
 // branded docs.billlayneinsurance.com/d/<id> page out -- the exact same customer
@@ -114,7 +116,10 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
   const [dragActive, setDragActive] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-  const [created, setCreated] = useState<{ item: DocLinkItem; typeId: DocTypeId; customer: string } | null>(null);
+  const [created, setCreated] = useState<{ item: DocLinkItem; typeId: DocTypeId; customer: string; file: File } | null>(null);
+  // Gold Elite Gmail drafts (Command Center only -- the server decides via canGmailDraft).
+  const [canGmailDraft, setCanGmailDraft] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<DocEmailTarget | null>(null);
   const [message, setMessage] = useState('');
   // --- library ---
   const [library, setLibrary] = useState<DocLinkItem[]>([]);
@@ -201,9 +206,9 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
     setLibraryLoading(true); setLibraryError(''); setLibraryProgress(0);
     if (refresh) { requestedViews.current.clear(); setViews({}); }
     try {
-      const { items, canDelete: allowed } = await listAllDocLinks(controller.signal, count => { if (mounted.current) setLibraryProgress(count); });
+      const { items, canDelete: allowed, canGmailDraft: draftsAllowed } = await listAllDocLinks(controller.signal, count => { if (mounted.current) setLibraryProgress(count); });
       if (!mounted.current || controller.signal.aborted) return;
-      setLibrary(items); setLibraryLoaded(true); setCanDelete(allowed);
+      setLibrary(items); setLibraryLoaded(true); setCanDelete(allowed); setCanGmailDraft(draftsAllowed);
     } catch (error) {
       if (!isAbort(error) && mounted.current) setLibraryError(errorText(error));
     } finally {
@@ -236,7 +241,7 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
       const person = tidyCustomerName(customer);
       const item = await createDocLink(upload, person, controller.signal);
       if (!mounted.current) return;
-      setCreated({ item, typeId, customer: person });
+      setCreated({ item, typeId, customer: person, file: upload });
       setMessage(buildCustomerMessage(typeId, person, item.url));
       setLibrary(prev => [item, ...prev.filter(existing => existing.shortId !== item.shortId)]);
       setViews(prev => ({ ...prev, [item.shortId]: null }));
@@ -357,7 +362,9 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
           <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />Open
         </a>
         <button type="button" className={buttonClass} title="Start a Gmail message with this link"
-          onClick={() => openGmail(emailSubject(typeForEmail), buildCustomerMessage(typeForEmail, item.customer || '', item.url))}>
+          onClick={() => canGmailDraft
+            ? setEmailTarget({ item })
+            : openGmail(emailSubject(typeForEmail), buildCustomerMessage(typeForEmail, item.customer || '', item.url))}>
           <i className="fa-solid fa-envelope" aria-hidden="true" />Email
         </button>
         {canDelete && !selectMode && <button type="button" className={dangerClass} title={'Delete ' + item.fileName + ' permanently'}
@@ -415,7 +422,13 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
           <a className={buttonClass} href={staffTestUrl(created.item.url)} target="_blank" rel="noopener noreferrer" title="Opens the customer page. Your own test views are not counted.">
             <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />Test Link
           </a>
-          <button type="button" className={buttonClass} onClick={() => openGmail(emailSubject(created.typeId), message)}><i className="fa-solid fa-envelope" aria-hidden="true" />Email in Gmail</button>
+          <button type="button" className={canGmailDraft ? primaryClass : buttonClass}
+            title={canGmailDraft ? 'Gold Elite Gmail draft with the document attached' : 'Open a Gmail message with the link'}
+            onClick={() => canGmailDraft
+              ? setEmailTarget({ item: created.item, typeId: created.typeId, customer: created.customer, file: created.file })
+              : openGmail(emailSubject(created.typeId), message)}>
+            <i className="fa-solid fa-envelope" aria-hidden="true" />Email in Gmail
+          </button>
           <button type="button" className={buttonClass} onClick={() => void copyText(message, 'Message copied.')}><i className="fa-solid fa-message" aria-hidden="true" />Copy Message</button>
           <button type="button" className={buttonClass} onClick={() => void loadViews([created.item.shortId], true)} title="Check whether the customer has opened it"><i className="fa-solid fa-rotate" aria-hidden="true" />Check Receipt</button>
         </div>
@@ -559,6 +572,7 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
       {copyState.error && <textarea readOnly aria-label="Text to copy manually" rows={copyState.value.includes('\n') ? 6 : 1} value={copyState.value}
         onFocus={event => event.target.select()} className={fieldClass + ' mt-2 !text-xs'} />}
     </div>}
+    <DocEmailDialog target={emailTarget} onClose={() => setEmailTarget(null)} addToast={addToast} />
   </section>;
 };
 

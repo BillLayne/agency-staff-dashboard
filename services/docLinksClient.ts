@@ -39,10 +39,11 @@ export async function createDocLink(file: File, customer: string, signal?: Abort
  * Every page of the library, newest first (follows the cursor like the image
  * library does), plus whether this dashboard may delete (decided server-side).
  */
-export async function listAllDocLinks(signal?: AbortSignal, onPage?: (count: number) => void): Promise<{ items: DocLinkItem[]; canDelete: boolean }> {
+export async function listAllDocLinks(signal?: AbortSignal, onPage?: (count: number) => void): Promise<{ items: DocLinkItem[]; canDelete: boolean; canGmailDraft: boolean }> {
   const items: DocLinkItem[] = [];
   const seen = new Set<string>();
   let canDelete = false;
+  let canGmailDraft = false;
   let cursor = '';
   for (let page = 0; page < 25; page += 1) {
     const body = await request(`/api/doc-links${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { signal });
@@ -52,10 +53,29 @@ export async function listAllDocLinks(signal?: AbortSignal, onPage?: (count: num
     }
     onPage?.(items.length);
     canDelete = body.canDelete === true;
+    canGmailDraft = body.canGmailDraft === true;
     cursor = typeof body.cursor === 'string' ? body.cursor : '';
     if (!cursor) break;
   }
-  return { items, canDelete };
+  return { items, canDelete, canGmailDraft };
+}
+
+/** The document's bytes (for attaching to a Gmail draft), via this dashboard's own proxy. */
+export async function fetchDocFile(shortId: string, signal?: AbortSignal): Promise<Uint8Array> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/doc-links/file?id=${encodeURIComponent(shortId)}`, { credentials: 'same-origin', signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new Error('Could not reach the dashboard to load the document. Check your connection and retry.');
+  }
+  if (response.status === 401 || response.redirected) throw new Error('Your session expired. Sign in again, then retry.');
+  if (!response.ok) {
+    let message = 'Could not load the document to attach. Please retry.';
+    try { const body = await response.json() as { error?: unknown }; if (typeof body.error === 'string') message = body.error; } catch { /* keep default */ }
+    throw new Error(message);
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 /** Permanently delete one document link (file, link and receipts). Safe to retry. */

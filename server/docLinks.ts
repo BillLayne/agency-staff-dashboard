@@ -64,6 +64,9 @@ const CURSOR_PATTERN = /^[A-Za-z0-9_\-.=+/]{1,1024}$/;
 // Permanent delete is reserved for Bill's Agency Command Center (Bill,
 // 2026-10-01). This same file runs in the staff dashboard, which refuses.
 export const canDeleteDocLinks = (env: DocLinksEnv) => appId(env) !== 'agency-staff-dashboard';
+// Gold Elite Gmail drafts go through the BLI Mail Gateway, which runs AS BILL -- every draft
+// lands in Bill's Drafts. So only his Command Center offers it; staff keep a plain Gmail link.
+export const canGmailDraft = (env: DocLinksEnv) => appId(env) !== 'agency-staff-dashboard';
 
 export async function docLinksHandler(context: PagesContext<DocLinksEnv>, fetcher: typeof fetch = fetch) {
   const { request, env } = context;
@@ -83,7 +86,7 @@ export async function docLinksHandler(context: PagesContext<DocLinksEnv>, fetche
       const body = await response.json() as { items?: unknown; cursor?: unknown };
       const items = (Array.isArray(body.items) ? body.items : []).map(normalizeDocLinkItem).filter(Boolean);
       const next = typeof body.cursor === 'string' && CURSOR_PATTERN.test(body.cursor) ? body.cursor : null;
-      return json({ items, cursor: next, canDelete: canDeleteDocLinks(env) });
+      return json({ items, cursor: next, canDelete: canDeleteDocLinks(env), canGmailDraft: canGmailDraft(env) });
     } catch {
       return json({ error: 'Could not reach the document library. Please retry.' }, 502);
     }
@@ -137,6 +140,35 @@ export async function docLinksHandler(context: PagesContext<DocLinksEnv>, fetche
     return json({ item }, 201);
   } catch {
     return json({ error: 'The upload did not finish. Check the library before retrying so you do not create a duplicate.' }, 502);
+  }
+}
+
+// GET /api/doc-links/file?id=<shortId> -- the document's bytes, so a Gmail draft can attach it
+// even when the file isn't on this computer any more (library rows). Fetched server-to-server
+// with ?ref=staff so it never counts as the customer opening it.
+export async function docLinkFileHandler(context: PagesContext<DocLinksEnv>, fetcher: typeof fetch = fetch) {
+  const { request, env } = context;
+  const denied = await requireSession(request, env);
+  if (denied) return denied;
+  if (request.method !== 'GET') return json({ error: 'Use GET to fetch a document.' }, 405);
+  const target = upstream(env);
+  if (!target) return notConfigured();
+  const id = (new URL(request.url).searchParams.get('id') || '').toLowerCase();
+  if (!/^[a-f0-9]{12}$/.test(id)) return json({ error: 'Invalid document id.' }, 400);
+  try {
+    const response = await callUpstream(fetcher, `${target.base}/d/${id}/open?ref=staff`, { headers: { accept: '*/*' } });
+    if (response.status === 404) return json({ error: 'That document no longer exists.' }, 404);
+    if (!response.ok || !response.body) return json({ error: 'Could not load the document. Please retry.' }, 502);
+    if (Number(response.headers.get('content-length') || 0) > MAX_DOC_BYTES) return json({ error: 'This document is too large to attach.' }, 413);
+    return new Response(response.body, {
+      headers: {
+        'content-type': response.headers.get('content-type') || 'application/octet-stream',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+      },
+    });
+  } catch {
+    return json({ error: 'Could not reach the document service. Please retry.' }, 502);
   }
 }
 
