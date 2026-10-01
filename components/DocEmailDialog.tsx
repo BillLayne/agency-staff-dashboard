@@ -32,6 +32,11 @@ const primaryClass = buttonClass + ' bg-[#003f87] !text-white hover:!bg-[#0076d3
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-60 dark:border-white/20 dark:bg-white/5 dark:text-white';
 const labelClass = 'mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200';
 const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+// The gateway secret boxes are TEXT fields masked with CSS, never type="password": this site
+// has Bill's saved dashboard password, and browsers autofill it into any password box
+// (autocomplete="off" is ignored there) -- it would be saved as the gateway secret.
+const secretInputProps = { type: 'text', autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: false, 'data-1p-ignore': 'true', 'data-lpignore': 'true' } as const;
+const maskClass = ' [-webkit-text-security:disc]';
 
 type Status =
   | { kind: 'idle' }
@@ -143,13 +148,13 @@ const DocEmailDialog: React.FC<Props> = ({ target, onClose, addToast }) => {
         <p className="m-0 font-semibold text-amber-900 dark:text-amber-100">One-time setup on this device</p>
         <p className="m-0 mt-1 text-amber-900 dark:text-amber-100">Gmail drafts come from your BLI Mail Gateway. Paste PDF Studio&rsquo;s connection link (PDF Studio &rarr; Connections &rarr; copy the connection), or the gateway address and secret from <a className="font-semibold underline" href="https://www.billlayneinsurance.com/mail-gateway/" target="_blank" rel="noopener noreferrer">your Mail Gateway page</a>.</p>
         <label htmlFor="gw-handoff" className={labelClass + ' mt-3'}>PDF Studio connection link</label>
-        <input id="gw-handoff" type="password" autoComplete="off" value={handoff} onChange={event => setHandoff(event.target.value)} placeholder="https://www.billlayneinsurance.com/pdf-tools/#gw=..." className={fieldClass} />
+        <input id="gw-handoff" {...secretInputProps} value={handoff} onChange={event => setHandoff(event.target.value)} placeholder="https://www.billlayneinsurance.com/pdf-tools/#gw=..." className={fieldClass + maskClass} />
         <p className="my-2 text-center text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">or</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label htmlFor="gw-url" className={labelClass}>Gateway address</label>
             <input id="gw-url" autoComplete="off" value={gwUrl} onChange={event => setGwUrl(event.target.value)} placeholder="https://script.google.com/macros/s/.../exec" className={fieldClass} /></div>
           <div><label htmlFor="gw-secret" className={labelClass}>Gateway secret</label>
-            <input id="gw-secret" type="password" autoComplete="off" value={gwSecret} onChange={event => setGwSecret(event.target.value)} className={fieldClass} /></div>
+            <input id="gw-secret" {...secretInputProps} value={gwSecret} onChange={event => setGwSecret(event.target.value)} className={fieldClass + maskClass} /></div>
         </div>
         <button type="button" className={primaryClass + ' mt-3'} disabled={testing || (!handoff.trim() && (!gwUrl.trim() || !gwSecret.trim()))} onClick={() => void connect()}>
           <i className={'fa-solid ' + (testing ? 'fa-spinner fa-spin' : 'fa-plug')} aria-hidden="true" />{testing ? 'Checking...' : 'Check and save'}
