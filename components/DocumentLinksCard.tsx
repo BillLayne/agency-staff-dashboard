@@ -26,6 +26,9 @@ const dangerClass = buttonClass + ' !border-rose-200 !text-rose-700 hover:!bg-ro
 const dangerSolidClass = buttonClass + ' !border-rose-600 bg-rose-600 !text-white hover:!bg-rose-700';
 const confirmBoxClass = 'w-full rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-100';
 const RECENT_MS = 30 * 86400000;
+// The library is a Cloudflare KV list(), which can keep showing a deleted row for
+// up to about a minute. Rows deleted here stay hidden from refreshes this long.
+const DELETE_SETTLE_MS = 5 * 60000;
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-60 dark:border-white/20 dark:bg-white/5 dark:text-white';
 const labelClass = 'mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200';
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please retry.';
@@ -149,6 +152,7 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
   const uploadRequest = useRef<AbortController | null>(null);
   const libraryRequest = useRef<AbortController | null>(null);
   const requestedViews = useRef<Set<string>>(new Set());
+  const recentlyDeleted = useRef<Map<string, number>>(new Map());
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; uploadRequest.current?.abort(); libraryRequest.current?.abort(); }, []);
 
@@ -208,7 +212,10 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
     try {
       const { items, canDelete: allowed, canGmailDraft: draftsAllowed } = await listAllDocLinks(controller.signal, count => { if (mounted.current) setLibraryProgress(count); });
       if (!mounted.current || controller.signal.aborted) return;
-      setLibrary(items); setLibraryLoaded(true); setCanDelete(allowed); setCanGmailDraft(draftsAllowed);
+      const now = Date.now();
+      recentlyDeleted.current.forEach((at, id) => { if (now - at > DELETE_SETTLE_MS) recentlyDeleted.current.delete(id); });
+      setLibrary(items.filter(item => !recentlyDeleted.current.has(item.shortId)));
+      setLibraryLoaded(true); setCanDelete(allowed); setCanGmailDraft(draftsAllowed);
     } catch (error) {
       if (!isAbort(error) && mounted.current) setLibraryError(errorText(error));
     } finally {
@@ -271,6 +278,7 @@ const DocumentLinksCard: React.FC<DocumentLinksCardProps> = ({ addToast, active 
   };
   const removeFromLibrary = (ids: string[]) => {
     const gone = new Set(ids);
+    ids.forEach(id => recentlyDeleted.current.set(id, Date.now()));
     setLibrary(prev => prev.filter(item => !gone.has(item.shortId)));
     setSelected(prev => prev.filter(id => !gone.has(id)));
     setViews(prev => { const next = { ...prev }; ids.forEach(id => delete next[id]); return next; });
