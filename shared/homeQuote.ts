@@ -79,6 +79,8 @@ export type QuoteResearch = { address: string; formattedAddress: string; retriev
 export type QuoteDraft = {
   version: 1; address: string; answers: Record<string, string>; research: QuoteResearch | null;
   selectedId: string; confirmed: boolean; updatedAt: string;
+  /** Values copied from a policy document, retained for source labeling until changed. */
+  documentValues?: Record<string, string>;
 };
 export const newQuoteDraft = (address = ''): QuoteDraft => ({ version: 1, address, answers: {}, research: null, selectedId: '', confirmed: false, updatedAt: new Date().toISOString() });
 export const normalizeAddress = (value: string) => value.replace(/\s+/g, ' ').trim();
@@ -138,15 +140,17 @@ export function quoteGaps(draft: QuoteDraft) {
   if (!draft.confirmed || !property?.hasCountyRecord) gaps.unshift('Property / parcel match needs verification');
   if (!property?.facts.yearBuilt && !draft.answers.yearBuilt) gaps.push('Year built');
   if (!property?.facts.heatedArea && !draft.answers.heatedArea) gaps.push('Heated square feet');
+  if (QUOTE_FIELDS.some(field => isDocumentValue(draft, field.key))) gaps.push('Policy document details need verification against the source and applicant');
   return [...gaps, ...answerWarnings(draft.answers)];
 }
+export const isDocumentValue = (draft: QuoteDraft, key: string) => Boolean(draft.answers[key] && draft.documentValues?.[key] === draft.answers[key]);
 export function propertyConflicts(draft: QuoteDraft) {
   const property = selectedProperty(draft);
   if (!property) return [];
   return ['yearBuilt', 'heatedArea'].filter(key => {
     const prospect = draft.answers[key]?.replace(/,/g, '').trim();
     return prospect && property.facts[key] && prospect !== property.facts[key];
-  }).map(key => `${key === 'yearBuilt' ? 'Year built' : 'Heated square feet'}: public record ${property.facts[key]}; prospect ${draft.answers[key]}. Needs verification.`);
+  }).map(key => `${key === 'yearBuilt' ? 'Year built' : 'Heated square feet'}: public record ${property.facts[key]}; ${isDocumentValue(draft, key) ? 'policy document' : 'prospect'} ${draft.answers[key]}. Needs verification.`);
 }
 export const findMyHomeUrl = (address: string) => `https://find-my-home-information.pages.dev/?address=${encodeURIComponent(address)}`;
 
@@ -158,6 +162,12 @@ export function restoreQuoteDraft(raw: unknown): QuoteDraft {
   for (const field of QUOTE_FIELDS) {
     const value = asText(answers[field.key], 4000);
     if (value && (!field.options || field.options.includes(value))) draft.answers[field.key] = value;
+  }
+  const documentValues = object(input.documentValues);
+  for (const field of QUOTE_FIELDS) {
+    if (typeof documentValues[field.key] === 'string' && documentValues[field.key] === draft.answers[field.key]) {
+      (draft.documentValues ||= {})[field.key] = draft.answers[field.key];
+    }
   }
   // Re-normalize restored records. Import always requires a fresh match confirmation.
   const research = object(input.research);
@@ -199,10 +209,12 @@ export function buildHomeQuoteReport(draft: QuoteDraft) {
     const label = field.key === 'yearBuilt' ? 'Year built' : field.key === 'heatedArea' ? 'Heated square feet' : field.label;
     const answer = draft.answers[field.key]?.trim();
     const publicAnswer = publicAnswers[field.key];
+    const answerSource = isDocumentValue(draft, field.key) ? 'Policy document (unverified)' : 'Prospect / staff entry';
+    if (!publicAnswer && answer && isDocumentValue(draft, field.key)) return `<div class="row"><dt>${escape(label)}</dt><dd><div>${escape(answer)}</div><div class="source">${answerSource}</div></dd></div>`;
     if (!publicAnswer) return row(label, answer || (draft.answers.policyStatus === 'No current policy' && ['carrier', 'coverageA', 'renewalDate', 'premium', 'deductibles'].includes(field.key) ? 'Not applicable - prospect reports no current policy' : ''));
-    return `<div class="row"><dt>${escape(label)}</dt><dd><div>${escape(answer || publicAnswer)}</div><div class="source">${answer ? 'Prospect / staff entry' : escape(publicSource) + '; prospect confirmation not entered.'}</div>${answer ? `<div class="record-note"><span class="source">${escape(publicSource)}</span>${escape(publicAnswer)}</div>` : ''}</dd></div>`;
+    return `<div class="row"><dt>${escape(label)}</dt><dd><div>${escape(answer || publicAnswer)}</div><div class="source">${answer ? answerSource : escape(publicSource) + '; prospect confirmation not entered.'}</div>${answer ? `<div class="record-note"><span class="source">${escape(publicSource)}</span>${escape(publicAnswer)}</div>` : ''}</dd></div>`;
   };
-  const sections = QUOTE_SECTIONS.map((section, index) => `<section id="${section.id}"><h2>${index + 3}. ${section.label}</h2><p class="source">${section.fields.some(field => publicAnswers[field.key]) ? 'Sources: prospect / staff entries and available public records, labeled separately. Verify against documents.' : 'Source: prospect / staff entry; verify against documents.'}</p><dl>${section.fields.map(interviewRow).join('')}</dl></section>`).join('');
+  const sections = QUOTE_SECTIONS.map((section, index) => `<section id="${section.id}"><h2>${index + 3}. ${section.label}</h2><p class="source">${section.fields.some(field => isDocumentValue(draft, field.key)) ? 'Sources: policy document, prospect / staff entries and available public records, labeled separately. Verify each item.' : section.fields.some(field => publicAnswers[field.key]) ? 'Sources: prospect / staff entries and available public records, labeled separately. Verify against documents.' : 'Source: prospect / staff entry; verify against documents.'}</p><dl>${section.fields.map(interviewRow).join('')}</dl></section>`).join('');
   const sources = property ? PROPERTY_LINKS.filter(([key]) => safePropertyUrl(property.links[key])).map(([key, label]) => `<li><a href="${escape(safePropertyUrl(property.links[key]))}" target="_blank" rel="noopener noreferrer">${escape(label)}</a></li>`).join('') : '';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>Home quote intake | ${escape(draft.address)}</title><style>
   *{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#202b35;font:15px/1.6 system-ui,sans-serif;letter-spacing:0}main{max-width:1040px;margin:auto;padding:28px;background:white}header{border-bottom:3px solid #003f87;padding-bottom:20px}header img{width:240px;max-width:100%;height:auto}h1{font-size:28px;line-height:1.25;margin:20px 0 6px}h2{font-size:20px;margin:0 0 8px}p{margin:8px 0}.source,.muted{color:#526170;font-size:13px}.badge{display:inline-block;background:#fff4d8;color:#684900;padding:4px 10px;border-radius:4px;font-weight:700}nav{display:flex;flex-wrap:wrap;gap:8px 18px;border-bottom:1px solid #d5dce3;padding:16px 0}a{color:#004e9d;overflow-wrap:anywhere}section{padding:22px 0;border-bottom:1px solid #d5dce3}dl{margin:0}.row{display:grid;grid-template-columns:minmax(170px,38%) minmax(0,1fr);gap:16px;border-top:1px solid #e8edf1;padding:8px 0;break-inside:avoid}dt{color:#526170}dd{margin:0;font-weight:600;white-space:pre-wrap;overflow-wrap:anywhere}.missing{color:#8a5910;font-weight:400}li{margin:4px 0;overflow-wrap:anywhere}.alert{border-left:3px solid #b87c00;padding:8px 14px;background:#fff9eb}footer{font-size:12px;color:#526170;padding-top:20px}@media(max-width:520px){main{padding:18px}h1{font-size:23px}.row{grid-template-columns:1fr;gap:2px}}@media print{@page{size:letter;margin:.55in}body,main{background:white}main{padding:0;max-width:none;font-size:11px}header img{width:190px}h1{font-size:22px}h2{font-size:16px}nav{display:none}section{padding:14px 0}h2{break-after:avoid}a{color:inherit;text-decoration:none}.row{padding:5px 0}footer{font-size:10px}}

@@ -3,9 +3,11 @@ import Modal from './Modal';
 import {
   QUOTE_SECTIONS, PROPERTY_FIELDS, PROPERTY_LINKS, newQuoteDraft, normalizeAddress,
   restoreQuoteDraft, selectedProperty, quoteGaps, propertyConflicts, answerWarnings,
-  buildHomeQuoteReport, findMyHomeUrl,
+  buildHomeQuoteReport, findMyHomeUrl, isDocumentValue,
 } from '../shared/homeQuote';
 import type { QuoteDraft, QuoteResearch } from '../shared/homeQuote';
+import HomeDeclarationImport from './HomeDeclarationImport';
+import { mergeHomeDeclaration } from '../shared/homeDeclaration';
 
 const STORAGE_KEY = 'matrix-home-quote-session-v1';
 const buttonClass = 'quote-button';
@@ -32,6 +34,7 @@ const HomeQuoteWorkspace: React.FC<{
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [declarationOpen, setDeclarationOpen] = useState(false);
   const [pendingAddress, setPendingAddress] = useState('');
   const [startingAddress, setStartingAddress] = useState('');
   const [confirmation, setConfirmation] = useState<'new' | 'clear' | 'import' | null>(null);
@@ -105,7 +108,7 @@ const HomeQuoteWorkspace: React.FC<{
   const activeSection = QUOTE_SECTIONS[section];
   const answersCount = activeSection.fields.filter(field => draft.answers[field.key]?.trim()).length;
   const report = view === 'report' ? buildHomeQuoteReport(draft) : '';
-  const keepClose = () => { setConfirmation(null); onClose(); };
+  const keepClose = () => { setDeclarationOpen(false); setConfirmation(null); onClose(); };
   const exportDraft = () => {
     download(JSON.stringify(draft, null, 2), 'home-quote-draft.json', 'application/json');
     exportVersion.current = draft.updatedAt;
@@ -156,6 +159,7 @@ const HomeQuoteWorkspace: React.FC<{
         <div className="quote-toolbar">
           <div><p ref={headingRef} tabIndex={-1} className="quote-address">{draft.address || address}</p><p className="quote-muted">Private interview. Retained in this tab; not backed up to the agency cloud.</p></div>
           <div className="quote-actions">
+            <button type="button" className={buttonClass} onClick={() => setDeclarationOpen(true)} title="Take a photo or read a home declarations page" aria-label="Read home declarations">{icon('fa-camera')}Read declarations</button>
             <button className={buttonClass} onClick={exportDraft} disabled={!draft.address}>{icon('fa-download')}Save draft</button>
             <button className={buttonClass} onClick={() => uploadRef.current?.click()}>{icon('fa-folder-open')}Open draft</button>
             <button className={buttonClass} title="Clear quote draft" aria-label="Clear quote draft" onClick={() => setConfirmation('clear')}>{icon('fa-trash-can')}</button>
@@ -190,7 +194,8 @@ const HomeQuoteWorkspace: React.FC<{
                 {field.type === 'select' ? <select {...props}><option value="">Not answered</option>{field.options?.map(option => <option key={option}>{option}</option>)}</select>
                   : field.type === 'textarea' ? <textarea {...props} rows={3} maxLength={4000} />
                     : <input {...props} type={field.type || 'text'} maxLength={4000} max={field.key === 'dob' ? new Date().toISOString().slice(0, 10) : undefined} autoComplete="off" />}
-                {field.hint && <p className="quote-hint" id={id + '-hint'}>{field.hint}</p>}</div>;
+                {field.hint && <p className="quote-hint" id={id + '-hint'}>{field.hint}</p>}
+                {isDocumentValue(draft, field.key) && <p className="quote-hint">From policy document — verify with the source and applicant.</p>}</div>;
             })}</div>
             {warnings.length > 0 && <ul className="quote-alert" role="alert">{warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
             <div className="quote-step-footer"><span className="quote-muted">All questions optional</span><div className="quote-actions"><button className={buttonClass} disabled={section === 0} onClick={() => setSection(section - 1)}>{icon('fa-arrow-left')}Back</button><button className={buttonClass + ' quote-primary'} onClick={() => section < QUOTE_SECTIONS.length - 1 ? setSection(section + 1) : setView('report')}>{section < QUOTE_SECTIONS.length - 1 ? 'Next section' : 'Review report'}{icon('fa-arrow-right')}</button></div></div>
@@ -206,6 +211,12 @@ const HomeQuoteWorkspace: React.FC<{
         </>}
       </div>
     </Modal>
+    <HomeDeclarationImport isOpen={isOpen && declarationOpen} onClose={() => setDeclarationOpen(false)} onApply={(data, address) => {
+      const merged = mergeHomeDeclaration(draftRef.current, data, address);
+      setPendingAddress(''); setStartingAddress(''); setView('interview'); setSection(0);
+      if (merged.needsResearch) void research(merged.draft); else setDraft(merged.draft);
+      setNotice(`Policy document details added to empty fields. Verify them against the document and applicant.${merged.skipped ? ` ${merged.skipped} conflicting item(s) were kept.` : ''}`);
+    }} />
     <Modal isOpen={isOpen && Boolean(confirmation)} title={confirmation === 'clear' ? 'Clear private quote draft?' : confirmation === 'new' ? 'Start a new quote?' : 'Open a saved quote?'} onClose={() => setConfirmation(null)}>
       <p className="text-sm">This replaces the current draft in this tab. Download it first if you need to keep the answers.</p>
       <div className="quote-actions mt-4"><button className={buttonClass} onClick={exportDraft}>Save current draft</button><button className={buttonClass} onClick={() => setConfirmation(null)}>Cancel</button><button className={buttonClass + ' quote-primary'} onClick={() => {

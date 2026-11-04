@@ -1,5 +1,9 @@
 # Agency Staff Dashboard
 
+## November 4, 2026: Home declarations reader
+
+Home Quote Info includes **Read declarations** for camera capture or PDF/JPG/PNG/WebP up to 8 MB. The signed, same-origin endpoint sends the file to Gemini for transcription and extraction without saving the original. Staff review the property address and details before applying to empty fields; a different property or named insured cannot replace an existing draft. On a new draft, the confirmed address starts the existing Find My Home lookup. Policy-sourced answers remain labeled unverified and separate from public records in the interview, saved drafts, and report. The reader does not infer claims, insurance status, roof age from year built, or current-policy limits/dates from a renewal. Property matching still requires staff verification.
+
 ## November 4, 2026: Auto declarations reader
 
 Live release: staff deployment `63dde0fc` / asset `index-UD_DyCUS.js` from `5e7d988`; agent deployment `b67576a1` / asset `index-DUP9nYQH.js` from the isolated production baseline `C:/Users/bill/cmp-auto-dec`. Both versions passed 81 tests and build. Live synthetic photo and PDF endpoint checks passed, as did signed/same-origin/input protections and staff document permission checks. Browser checks covered review and filling on phone/desktop sizes, an excluded driver, multiple vehicles, and legacy draft protection. Phone camera hardware itself was not exercised; no customer documents were used.
