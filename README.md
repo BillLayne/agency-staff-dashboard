@@ -2,6 +2,8 @@
 
 ## November 4, 2026: Home declarations reader
 
+Live release: staff deployment `b08242bc` / asset `index-1LARpH5K.js` from `3c7286e`; agent deployment `5169bb9d` / asset `index-BNthzEyK.js` from `C:/Users/bill/cmp-home-dec`. Both versions passed 89 tests and build. Fictional photo and multi-page PDF checks exercised the real reader, and browser tests covered address handoff, unverified document labeling, property-record conflicts, existing-draft protection and responsive layout. Live tests passed sign-in, same-origin/input protection, property lookup and staff document permissions. A physical phone camera was not exercised; no customer documents were used.
+
 Home Quote Info includes **Read declarations** for camera capture or PDF/JPG/PNG/WebP up to 8 MB. The signed, same-origin endpoint sends the file to Gemini for transcription and extraction without saving the original. Staff review the property address and details before applying to empty fields; a different property or named insured cannot replace an existing draft. On a new draft, the confirmed address starts the existing Find My Home lookup. Policy-sourced answers remain labeled unverified and separate from public records in the interview, saved drafts, and report. The reader does not infer claims, insurance status, roof age from year built, or current-policy limits/dates from a renewal. Property matching still requires staff verification.
 
 ## November 4, 2026: Auto declarations reader
