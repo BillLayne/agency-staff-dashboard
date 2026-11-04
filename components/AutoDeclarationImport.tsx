@@ -75,6 +75,7 @@ const AutoDeclarationImport: React.FC<{ isOpen: boolean; onClose: () => void; on
       {error && <p role="alert" className="quote-alert">{error}</p>}
       {result && <section aria-label="Review extracted auto details">
         <div className="quote-alert"><strong>Review before adding.</strong> Document type: {result.documentType === 'unknown' ? 'not identified' : result.documentType}. The reader can make mistakes. Coverage shown is from the document, not a confirmed request. Existing answers are kept; unmatched or conflicting items may be skipped.</div>
+        {result.warnings?.map((warning, i) => <p className="quote-alert" role="alert" key={i}>{warning}</p>)}
         {Object.keys(result.answers).length > 0 && <div className="quote-card"><h3>Policy and applicant</h3>{table(result.answers, names.answers)}</div>}
         {result.drivers.map((driver, i) => <div className="quote-card" key={'d' + i}><h3>Driver {i + 1}</h3>{table(driver, names.drivers)}</div>)}
         {result.vehicles.map((vehicle, i) => <div className="quote-card" key={'v' + i}><h3>Vehicle {i + 1}</h3>{table(vehicle, names.vehicles)}</div>)}

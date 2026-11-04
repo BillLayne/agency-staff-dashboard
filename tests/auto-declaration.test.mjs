@@ -127,3 +127,57 @@ test('explicit vehicle rows are preserved when structured extraction omits them'
   assert.equal(data.vehicles[1].model, 'Escape');
   assert.equal(data.vehicles[1].collision, '$500');
 });
+
+test('multi-page table recovers each individual driver, vehicle and deductible', async () => {
+  const transcription = `LETTER OF COVERAGE
+Named insured: Avery Example, Morgan Example
+Driver 1: Avery Example | Rated Driver
+Driver 2: Morgan Example | Rated Driver
+Driver 3: Taylor Example | Rated Driver
+Vehicle 1: 2003 | Honda | Accord | VIN: 1HGCM82633A004352
+Other Than Collision: $100
+Vehicle 2: 2018 | Ford | Escape | VIN: 1FTFW1EF1EFA00001
+Other Than Collision: $500
+Collision: $1,000
+Vehicle 3: 2019 | Toyota | Camry | VIN: 2C3CDXBG0JH100000
+Other Than Collision: $500
+Page 2
+Collision: $1,000
+Vehicle 4: 2020 | Honda | Civic | VIN: 5YJ3E1EA7KF317000
+Other Than Collision: $100`;
+  const fetcher = async (_url, init) => {
+    const schema = JSON.parse(init.body).generationConfig.responseSchema;
+    let value = transcription;
+    if (schema?.properties?.answers) value = JSON.stringify({ documentType: 'unknown', namedInsureds: ['Avery Example', 'Morgan Example'], answers: { name: 'Avery Example, Morgan Example' } });
+    else if (schema?.properties?.drivers) value = JSON.stringify({ drivers: [{ name: 'Avery Example, Morgan Example' }] });
+    else if (schema?.properties?.vehicles) value = JSON.stringify({ vehicles: [{ year: '2003', make: 'Honda', model: 'Accord', vin: '1HGCM82633A004352' }] });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: value }] }, finishReason: 'STOP' }] }));
+  };
+  const res = await autoDeclarationHandler(await context({ mimeType: 'image/png', data: png }), fetcher);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.answers.name, 'Avery Example');
+  assert.equal(data.answers.additionalNamedInsured, 'Morgan Example');
+  assert.deepEqual(data.drivers.map(d => d.name), ['Avery Example', 'Morgan Example', 'Taylor Example']);
+  assert.equal(data.vehicles.length, 4);
+  assert.deepEqual(data.vehicles.map(v => v.comprehensive), ['$100', '$500', '$500', '$100']);
+  assert.deepEqual(data.vehicles.map(v => v.collision || ''), ['', '$1,000', '$1,000', '']);
+  const merged = mergeDeclaration(newAutoQuoteDraft(), data).draft;
+  assert.equal(merged.vehicles.length, 4);
+  assert.equal(merged.drivers.length, 3);
+  assert.equal(merged.answers.additionalNamedInsured, 'Morgan Example');
+});
+
+test('a single last-name-first insured is not split into two people', async () => {
+  const fetcher = async (_url, init) => {
+    const schema = JSON.parse(init.body).generationConfig.responseSchema;
+    let value = 'Named insured: Example, Avery';
+    if (schema?.properties?.answers) value = JSON.stringify({ answers: { name: 'Example, Avery' }, namedInsureds: ['Example, Avery'] });
+    else if (schema?.properties?.drivers) value = JSON.stringify({ drivers: [] });
+    else if (schema?.properties?.vehicles) value = JSON.stringify({ vehicles: [] });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: value }] } }] }));
+  };
+  const data = await (await autoDeclarationHandler(await context({ mimeType: 'image/png', data: png }), fetcher)).json();
+  assert.equal(data.answers.name, 'Example, Avery');
+  assert.equal(data.answers.additionalNamedInsured, undefined);
+});

@@ -7,7 +7,7 @@ import { normalizeVin, validateVin } from './vin.ts';
 // requested quote effective date from a declarations page.
 // Do not silently turn a mailing address into a garaging address. Staff can
 // enter the garaging address after checking the declarations and prospect.
-export const policyKeys = new Set(['name', 'dob', 'phone', 'email', 'mailingAddress', 'carrier', 'currentBi', 'expirationDate', 'premium', 'liability', 'medPay', 'coverageNotes', 'notes']);
+export const policyKeys = new Set(['name', 'additionalNamedInsured', 'dob', 'phone', 'email', 'mailingAddress', 'carrier', 'currentBi', 'expirationDate', 'premium', 'liability', 'medPay', 'coverageNotes', 'notes']);
 export const driverKeys = new Set(['name', 'dob', 'gender', 'maritalStatus', 'dlState', 'yearsLicensed', 'status', 'discounts']);
 export const vehicleKeys = new Set(['vin', 'year', 'make', 'model', 'usage', 'annualMiles', 'ownership', 'lienholder', 'garagingZip', 'garagingAddress', 'comprehensive', 'collision', 'towing', 'rental', 'vehicleNotes']);
 const obj = (x: unknown): Record<string, unknown> => x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : {};
@@ -26,7 +26,7 @@ const clean = (raw: unknown, fields: AutoField[], allowed: Set<string>): Answers
   }
   return out;
 };
-export interface DeclarationExtraction { documentType: 'current' | 'renewal' | 'unknown'; answers: Answers; drivers: Answers[]; vehicles: Answers[]; }
+export interface DeclarationExtraction { documentType: 'current' | 'renewal' | 'unknown'; answers: Answers; drivers: Answers[]; vehicles: Answers[]; warnings?: string[]; }
 export function normalizeDeclaration(raw: unknown): DeclarationExtraction {
   const value = obj(raw);
   const documentType = value.documentType === 'current' || value.documentType === 'renewal' ? value.documentType : 'unknown';
@@ -37,6 +37,7 @@ export function normalizeDeclaration(raw: unknown): DeclarationExtraction {
   if (answers.premium && documentType !== 'current' && !/renewal|source|document/i.test(answers.premium)) answers.premium = 'Source document: ' + answers.premium;
   return {
     documentType, answers,
+    warnings: Array.isArray(value.warnings) ? value.warnings.filter((v): v is string => typeof v === 'string' && /^Check the document:/.test(v)).slice(0, 4).map(v => v.slice(0, 200)) : [],
     drivers: (Array.isArray(value.drivers) ? value.drivers : []).slice(0, MAX_DRIVERS).map(item => clean(item, DRIVER_FIELDS, driverKeys)).filter(item => Boolean(item.name)),
     vehicles: (Array.isArray(value.vehicles) ? value.vehicles : []).slice(0, MAX_VEHICLES).map(item => clean(item, VEHICLE_FIELDS, vehicleKeys)).filter(item => Boolean(item.vin || (item.year && item.make && item.model))),
   };

@@ -16,6 +16,7 @@ const STATES = ['NC', 'VA', 'SC', 'TN', 'GA', 'Other'];
 
 export const APPLICANT_FIELDS: AutoField[] = [
   { key: 'name', label: 'Named insured (full name)', critical: true, hint: 'As it appears on the driver license.' },
+  { key: 'additionalNamedInsured', label: 'Additional named insured', hint: 'Enter any other named insured separately from the primary insured.' },
   { key: 'dob', label: 'Date of birth', type: 'date', critical: true },
   { key: 'phone', label: 'Phone', type: 'tel' },
   { key: 'email', label: 'Email', type: 'email' },
@@ -314,6 +315,7 @@ export function buildAutoQuotePacket(draft: AutoQuoteDraft, now = new Date()): A
   const gaps = autoQuoteGaps(draft);
   const notes = [
     answers.notes?.trim(),
+    answers.additionalNamedInsured?.trim() ? 'Additional named insured: ' + answers.additionalNamedInsured.trim() : '',
     answers.mailingAddress?.trim() ? 'Different mailing address: ' + answers.mailingAddress.trim() : '',
     answers.consumerConsent?.trim() ? 'Consumer-report consent: ' + answers.consumerConsent.trim() : '',
     answers.staffMember?.trim() ? 'Intake completed by: ' + answers.staffMember.trim() : '',
