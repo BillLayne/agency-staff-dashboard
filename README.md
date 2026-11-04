@@ -2,6 +2,8 @@
 
 ## November 4, 2026: Auto declarations reader
 
+Live release: staff deployment `63dde0fc` / asset `index-UD_DyCUS.js` from `5e7d988`; agent deployment `b67576a1` / asset `index-DUP9nYQH.js` from the isolated production baseline `C:/Users/bill/cmp-auto-dec`. Both versions passed 81 tests and build. Live synthetic photo and PDF endpoint checks passed, as did signed/same-origin/input protections and staff document permission checks. Browser checks covered review and filling on phone/desktop sizes, an excluded driver, multiple vehicles, and legacy draft protection. Phone camera hardware itself was not exercised; no customer documents were used.
+
 Auto Quote Info offers **Read declarations**, with camera capture or PDF/JPG/PNG/WebP upload up to 8 MB. The signed, same-origin endpoint sends the selected file to Gemini for transcription and extraction, without saving the original. Staff review the extracted details and add only blank fields; existing answers are preserved, and a different or unidentifiable insured cannot be merged into an existing draft. Renewal source details do not become current-policy limits or expiration, missing history and consent are never filled, and a mailing address is not assumed to be a garaging address. Full VINs and deductible rows are kept only where supported; other details remain for staff review. The importer shares the auto draft's tab-scoped recovery and existing exports. The same files are intended for the agent Command Center.
 
 ## November 4, 2026: Command Center parity
