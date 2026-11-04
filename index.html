@@ -1,112 +1,28 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agency Staff Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1F3A" />
+    <title>Agency Command Center | Bill Layne Insurance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              outfit: ['Outfit', 'sans-serif'],
-            },
-            colors: {
-              primary: {
-                DEFAULT: '#003f87',
-                light: '#0076d3',
-                dark: '#002855',
-              },
-              accent: '#0076d3',
-              bg: {
-                light: '#f8fafc',
-                dark: '#0f172a',
-              },
-              card: {
-                light: '#ffffff',
-                dark: 'rgba(255, 255, 255, 0.08)',
-              },
-              border: {
-                light: '#e2e8f0',
-                dark: 'rgba(255, 255, 255, 0.12)',
-              },
-              text: {
-                light: '#0f172a',
-                dark: '#f8fafc',
-              },
-              'text-secondary': {
-                light: '#64748b',
-                dark: '#94a3b8',
-              },
-              secondary: '#0076d3',
-              'bg-light': '#f8fafc',
-              'bg-dark': '#0f172a',
-              'card-light': '#ffffff',
-              'card-dark': 'rgba(255, 255, 255, 0.08)',
-              'text-light': '#0f172a',
-              'text-dark': '#f8fafc',
-              'text-secondary-light': '#64748b',
-              'text-secondary-dark': '#94a3b8',
-              'border-light': '#e2e8f0',
-              'border-dark': 'rgba(255, 255, 255, 0.12)',
-            },
-            boxShadow: {
-              card: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              lg: '0 10px 25px rgba(0, 0, 0, 0.1)',
-              soft: '0 10px 40px -10px rgba(0,0,0,0.08)',
-              glow: '0 0 20px rgba(0, 63, 135, 0.4)',
-              'button-glow': '0 0 15px rgba(0, 118, 211, 0.5)',
-            },
-            backgroundImage: {
-              'premium-gradient': 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-              'button-gradient': 'linear-gradient(135deg, #003f87 0%, #0076d3 100%)',
-            },
-            animation: {
-              'fade-in': 'fadeIn 0.3s ease-out',
-              'slide-down': 'slideDown 0.3s ease-out',
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: '0', transform: 'translateY(10px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              slideDown: {
-                from: { opacity: 0, transform: 'translateY(-20px)' },
-                to: { opacity: 1, transform: 'translateY(0)' },
-              },
-            },
-          },
-        },
-      };
-    </script>
-    <style>
-      body {
-        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-      }
-      ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 10px;
-        border: 2px solid transparent;
-        background-clip: content-box;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    </style>
-  </head>
-  <body class="bg-[#f3f7fb] font-sans text-slate-900 antialiased">
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.21.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-bg-light dark:bg-bg-dark text-text-light dark:text-text-dark font-sans antialiased transition-colors duration-300 selection:bg-primary/20 selection:text-primary">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

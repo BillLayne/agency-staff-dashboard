@@ -49,13 +49,14 @@ export async function aiHandler({ request, env }: PagesContext<AiEnv>) {
   const timeout = setTimeout(abort, 80000);
   try {
     const attachments = [...(input.attachments || []), ...(input.attachment ? [input.attachment] : [])];
+    const research = input.task === 'property-report' || input.task === 'county-map';
     const body = {
       contents: [{ role: 'user', parts: [{ text: buildAiPrompt(input) }, ...attachments.map(file => ({ inlineData: { mimeType: file.mimeType, data: file.data } }))] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: input.task === 'property-report' ? 10000 : 5000 },
-      ...(['property-report', 'county-map'].includes(input.task) ? { tools: [{ googleSearch: {} }] } : {}),
+      generationConfig: { temperature: 0.2, maxOutputTokens: research ? 10000 : 5000, thinkingConfig: { thinkingBudget: research ? 2048 : 0 } },
+      ...(research ? { tools: [{ googleSearch: {} }] } : {}),
     };
-    const configuredModel = env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const models = [...new Set([configuredModel, 'gemini-2.5-flash'])];
+    const configuredModel = env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const models = [...new Set([configuredModel, 'gemini-3.5-flash'])];
     for (let index = 0; index < models.length; index++) {
       const model = models[index];
       if (!/^[a-zA-Z0-9.-]+$/.test(model)) return json({ error: 'AI model configuration needs attention.', code: 'AI_NOT_CONFIGURED' }, 503);

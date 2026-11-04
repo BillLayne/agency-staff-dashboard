@@ -1,5 +1,11 @@
 # Agency Staff Dashboard
 
+## November 4, 2026: Command Center parity
+
+The staff dashboard uses the current Agency Command Center design and search/tools workspaces, including Home Quote Info, Auto Quote Info and VIN lookup. It preserves the staff login, shared contacts database and its original contact storage keys, tab-scoped memo drafts including legacy recovery, staff-only launcher tools, and staff document-link restrictions. Staff do not receive Bill's Mail Gateway or the document-link delete and Gold Elite Gmail-draft permissions. The image workspace requires its own existing image-host access code. New quote drafts remain in the current browser tab or an explicitly downloaded file.
+
+`APP_ID=agency-staff-dashboard` must remain set: it controls the staff session and server-side document capabilities. Do not deploy with the agent dashboard's configuration. AI requests use the server-side staff secret; no API key belongs in the frontend. Property research sends only the requested address to Find My Home. Source parity was based on the live agent release at `C:/Users/bill/cmp-home-quick`, not its unrelated undeployed main branch.
+
 Separate staff-only dashboard for Bill Layne Insurance with Unified Search and three launcher sections:
 - Operations
 - Documents & Forms
@@ -7,7 +13,7 @@ Separate staff-only dashboard for Bill Layne Insurance with Unified Search and t
 
 Unified Search includes the same 17-company built-in carrier and workers compensation directory used by the agent Agency Command Center. Staff can search, copy, add, edit, remove, back up, and restore contact details. Additions/corrections now sync through authenticated `/api/contacts` to a private Cloudflare D1 database shared with the agent dashboard. Offline changes remain queued; conflicting edits require review. Original browser contacts are retained and migrate only after a confirmed shared save. Private backups stay outside the public repository.
 
-This app intentionally excludes Gmail Engineering and Quick Image Links / Imgur.
+Historical note: the original staff dashboard excluded Gmail Engineering and image links. The current Images workspace retains the image host’s separate access-code requirement.
 
 ## Local development
 

@@ -91,23 +91,12 @@ export interface Task {
 export interface HistoryItem {
   id: string;
   link: string;
-  deletehash: string;
+  deletehash?: string; // legacy Imgur uploads
+  key?: string; // BLI Image Host object key
   name: string;
   createdAt: number;
   groups: string[];
   base64?: string; // Store base64 for AI editing
-}
-
-export interface ImgurUploadResponse {
-    success: boolean;
-    status: number;
-    data: {
-        id: string;
-        link: string;
-        deletehash: string;
-        error?: string;
-        type?: string;
-    };
 }
 
 // FIX: Added EmailState interface to resolve import error in emailEngine.ts

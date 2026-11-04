@@ -1,285 +1,208 @@
-import React, { useCallback, useState } from 'react';
-import ProgramLauncher from './components/ProgramLauncher';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import SearchCard from './components/SearchCard';
+import CommandPalette from './components/CommandPalette';
+import ProgramLauncher from './components/ProgramLauncher';
+import QuickImageLinksCard from './components/QuickImageLinksCard';
 import DocumentLinksCard from './components/DocumentLinksCard';
-import Toast from './components/Toast';
+import Toast, { type ToastAction } from './components/Toast';
+import Modal from './components/Modal';
+import { useLocalStorage } from './hooks/useLocalStorage';
 import type { ToastMessage } from './types';
 
-type WorkspaceMode = 'search' | 'tools' | 'docs';
-const MODE_ICONS: Record<WorkspaceMode, string> = { search: 'fa-magnifying-glass', tools: 'fa-table-cells-large', docs: 'fa-file-pdf' };
+const todayKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
 
-const quickActions = [
-  {
-    label: 'Matrix Home',
-    description: 'Open the main Agency Matrix portal.',
-    href: 'https://agents.agencymatrix.com/#/',
-    icon: 'fa-solid fa-house-chimney-window',
-  },
-  {
-    label: 'Send Docs',
-    description: 'Open the document link sender.',
-    href: 'https://www.sendbilldocs.com/agent.html',
-    icon: 'fa-solid fa-file-arrow-up',
-  },
-  {
-    label: 'SMS Center',
-    description: 'Open the staff texting workspace.',
-    href: 'https://agency-sms-command-center.bill-7e3.workers.dev/',
-    icon: 'fa-solid fa-comments',
-  },
-  {
-    label: 'Auto ID Cards',
-    description: 'Generate customer insurance cards.',
-    href: 'https://insurance-card-generator-2026-color-edition.pages.dev/',
-    icon: 'fa-solid fa-id-card',
-  },
-  {
-    label: 'DL123',
-    description: 'Open the DL123 certificate maker.',
-    href: '/dl123-generator/index.html',
-    icon: 'fa-solid fa-file-shield',
-  },
-  {
-    label: 'POI Generator',
-    description: 'Build proof-of-insurance documents.',
-    href: 'https://bill-layne-insurance-poi-generator.pages.dev',
-    icon: 'fa-solid fa-file-pdf',
-  },
-  {
-    label: 'No Loss Forms',
-    description: 'Open the no-loss form agent portal.',
-    href: 'https://esign.billlayneinsurance.com/agent',
-    icon: 'fa-solid fa-file-signature',
-  },
+interface SearchLog { day: string; count: number }
+type Workspace = 'search' | 'tools' | 'images' | 'docs';
+type AppToast = ToastMessage & { action?: ToastAction };
+const WORKSPACES: { id: Workspace; label: string; icon: string }[] = [
+  { id: 'search', label: 'Search', icon: 'fa-magnifying-glass' },
+  { id: 'tools', label: 'Tools', icon: 'fa-table-cells-large' },
+  { id: 'images', label: 'Images', icon: 'fa-image' },
+  { id: 'docs', label: 'Docs', icon: 'fa-file-pdf' },
 ];
 
 export default function App() {
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [searchCount, setSearchCount] = useState(0);
-  const [activeMode, setActiveMode] = useState<WorkspaceMode>('search');
+  const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light');
+  const [workspace, setWorkspace] = useState<Workspace>('search');
+  const [toasts, setToasts] = useState<AppToast[]>([]);
+  const [searchLog, setSearchLog] = useLocalStorage<SearchLog>('matrix-pro-search-log', { day: todayKey(), count: 0 });
+  const [showPalette, setShowPalette] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const toastIdRef = useRef(0);
+  const toastTimers = useRef(new Map<number, number>());
 
-  const addToast = useCallback((message: string, type: ToastMessage['type'] = 'success') => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, 3000);
+  useEffect(() => { document.documentElement.classList.toggle('dark', theme === 'dark'); }, [theme]);
+  useEffect(() => () => { toastTimers.current.forEach((timer) => window.clearTimeout(timer)); }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    window.clearTimeout(toastTimers.current.get(id));
+    toastTimers.current.delete(id);
+    setToasts((previous) => previous.filter((toast) => toast.id !== id));
   }, []);
 
-  const handleSearch = useCallback(() => {
-    setSearchCount((current) => current + 1);
+  // The optional third argument keeps existing two-argument callers compatible.
+  const addToast = useCallback((message: string, type: ToastMessage['type'] = 'success', options?: { action?: ToastAction }) => {
+    const id = ++toastIdRef.current;
+    setToasts((previous) => [...previous, { id, message, type, action: options?.action }]);
+    if (type !== 'danger' && type !== 'warning' && !options?.action) {
+      toastTimers.current.set(id, window.setTimeout(() => dismissToast(id), 5000));
+    }
+  }, [dismissToast]);
+
+  const toggleTheme = useCallback(() => setTheme((previous) => previous === 'light' ? 'dark' : 'light'), [setTheme]);
+  const searchCount = searchLog.day === todayKey() ? searchLog.count : 0;
+  const handleSearchIncrement = useCallback(() => {
+    setSearchLog((previous) => {
+      const today = todayKey();
+      return previous.day === today ? { day: today, count: previous.count + 1 } : { day: today, count: 1 };
+    });
+  }, [setSearchLog]);
+
+  const selectWorkspace = useCallback((next: Workspace) => {
+    setWorkspace(next);
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  const openExternalLink = useCallback(
-    (label: string, href: string) => {
-      window.open(href, '_blank', 'noopener,noreferrer');
-      addToast(`Opening ${label}...`, 'info');
-    },
-    [addToast],
-  );
+  const focusUnifiedSearch = useCallback(() => {
+    selectWorkspace('search');
+    window.requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLInputElement>(
+        '#workspace-search input[data-unified-search], #workspace-search input[type="search"], #workspace-search input[type="text"]'
+      );
+      input?.focus({ preventScroll: true });
+      input?.select();
+    });
+  }, [selectWorkspace]);
 
-  const toastStack = (
-    <div className="fixed bottom-6 right-6 z-[110] flex flex-col gap-3">
-      {toasts.map((toast) => (
-        <Toast key={toast.id} message={toast.message} type={toast.type} />
+  const handleQuickSearch = useCallback((query: string) => {
+    const selection = /\d+/.test(query) ? 'Address' : 'Name';
+    window.open(`https://agents.agencymatrix.com/#/customer/search?selection=${selection}&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+    handleSearchIncrement();
+  }, [handleSearchIncrement]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || document.querySelector('[aria-modal="true"]')) return;
+      const target = event.target as HTMLElement | null;
+      const typing = target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+      const key = event.key.toLowerCase();
+      if (key === '/' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        // Claim slash before any mounted section's native listener sees it.
+        event.stopImmediatePropagation();
+        focusUnifiedSearch();
+      } else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && (key === 'k' || key === 'm')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setShowPalette(true);
+      } else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && key === 'd' && !typing) {
+        event.preventDefault();
+        toggleTheme();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [focusUnifiedSearch, toggleTheme]);
+
+  useEffect(() => {
+    const handleStorageError = (event: Event) => {
+      const { error, key } = (event as CustomEvent).detail ?? {};
+      addToast(error?.name === 'QuotaExceededError' || error?.code === 22
+        ? 'Browser storage is full. Recent changes may not be saved.'
+        : `Changes to ${key || 'local data'} could not be saved in this browser.`, 'danger');
+    };
+    window.addEventListener('local-storage-error', handleStorageError);
+    return () => window.removeEventListener('local-storage-error', handleStorageError);
+  }, [addToast]);
+
+  const navigation = (mobile: boolean) => (
+    <nav className={mobile ? 'workspace-nav workspace-nav-mobile' : 'workspace-nav workspace-nav-desktop'} aria-label={mobile ? 'Mobile workspace' : 'Workspace'}>
+      {WORKSPACES.map((item) => (
+        <button key={item.id} type="button" aria-current={workspace === item.id ? 'page' : undefined}
+          aria-controls={`workspace-${item.id}`} onClick={() => selectWorkspace(item.id)}>
+          <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
+          <span>{item.label}</span>
+        </button>
       ))}
-    </div>
+    </nav>
   );
 
   return (
-    <div className="min-h-screen bg-[#eef4fb] text-slate-900">
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1460px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-blue-900/15">
-              <i className="fa-solid fa-briefcase text-base"></i>
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-black uppercase tracking-[0.35em] text-[#0076d3]">
-                Bill Layne Insurance
-              </p>
-              <h1 className="truncate font-outfit text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
-                Agency Staff Command Center
-              </h1>
-              <p className="hidden truncate text-sm text-slate-500 md:block">
-                Staff search first, daily tools one click away.
-              </p>
+    <div className="app-shell">
+      <a className="skip-link" href="#workspace-main">Skip to workspace</a>
+      <header className="shell-header">
+        <div className="shell-header-inner">
+          <div className="shell-brand">
+            <span className="shell-mark" aria-hidden="true">BL</span>
+            <div>
+              <h1>Agency Command Center</h1>
+              <p>Bill Layne Insurance</p>
             </div>
           </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="hidden rounded-[1rem] border border-slate-200 bg-slate-100 p-1 sm:flex">
-              {(['search', 'tools', 'docs'] as WorkspaceMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setActiveMode(mode)}
-                  className={`inline-flex items-center gap-2 rounded-[0.8rem] px-3 py-2 text-xs font-black uppercase tracking-[0.12em] transition focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30 ${
-                    activeMode === mode
-                      ? 'bg-white text-[#003f87] shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <i className={`fa-solid ${MODE_ICONS[mode]} text-[11px]`}></i>
-                  {mode}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveMode('search')}
-              className="inline-flex items-center gap-2 rounded-[1rem] border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm transition hover:border-[#0076d3]/50 hover:text-[#003f87] focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30"
-            >
-              <i className="fa-solid fa-bolt text-[11px]"></i>
-              Quick Search
+          {navigation(false)}
+          <div className="shell-actions">
+            <button type="button" className="shell-icon-button" onClick={() => setShowSettings(true)} aria-label="Settings and help" title="Settings and help">
+              <i className="fa-solid fa-gear" aria-hidden="true" />
             </button>
-            <a
-              href="/logout"
-              aria-label="Log out of staff dashboard"
-              title="Log out"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-[#0076d3]/50 hover:text-[#003f87] focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30"
-            >
-              <i className="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
-            </a>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1460px] px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-        <section className="mb-4 grid gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-58px_rgba(15,23,42,0.75)] md:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => setActiveMode('search')}
-            className={`flex min-h-[74px] items-center gap-4 rounded-[1.1rem] px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30 ${
-              activeMode === 'search'
-                ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
-                : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[0.95rem] ${activeMode === 'search' ? 'bg-[#0076d3]' : 'bg-white text-slate-400'}`}>
-              <i className="fa-solid fa-magnifying-glass"></i>
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-black uppercase tracking-[0.18em]">Unified Search</span>
-              <span className={`mt-1 block text-sm font-semibold ${activeMode === 'search' ? 'text-slate-300' : 'text-slate-400'}`}>
-                Matrix lookup and customer search
-              </span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMode('tools')}
-            className={`flex min-h-[74px] items-center gap-4 rounded-[1.1rem] px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30 ${
-              activeMode === 'tools'
-                ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
-                : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[0.95rem] ${activeMode === 'tools' ? 'bg-[#0076d3]' : 'bg-white text-slate-400'}`}>
-              <i className="fa-solid fa-table-cells-large"></i>
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-black uppercase tracking-[0.18em]">Tools</span>
-              <span className={`mt-1 block text-sm font-semibold ${activeMode === 'tools' ? 'text-slate-300' : 'text-slate-400'}`}>
-                Launchers, forms, property utilities
-              </span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMode('docs')}
-            className={`flex min-h-[74px] items-center gap-4 rounded-[1.1rem] px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-[#0076d3]/30 ${
-              activeMode === 'docs'
-                ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
-                : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[0.95rem] ${activeMode === 'docs' ? 'bg-[#0076d3]' : 'bg-white text-slate-400'}`}>
-              <i className="fa-solid fa-file-pdf"></i>
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-black uppercase tracking-[0.18em]">Document Links</span>
-              <span className={`mt-1 block text-sm font-semibold ${activeMode === 'docs' ? 'text-slate-300' : 'text-slate-400'}`}>
-                PDF or photo to a branded link
-              </span>
-            </span>
-          </button>
+      <main id="workspace-main" className="workspace-main" tabIndex={-1} data-modal-focus-fallback>
+        <section id="workspace-search" aria-label="Search workspace" hidden={workspace !== 'search'}>
+          <SearchCard active={workspace === 'search'} addToast={addToast} searchCount={searchCount} onSearch={handleSearchIncrement} />
         </section>
-
-        {activeMode === 'search' ? (
-          <div className="space-y-4">
-            <SearchCard addToast={addToast} searchCount={searchCount} onSearch={handleSearch} />
-
-            <section className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_-60px_rgba(15,23,42,0.8)]">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Staff Quick Actions</h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">Most common next steps after search.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveMode('tools')}
-                  className="hidden rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 transition hover:border-[#0076d3]/50 hover:text-[#003f87] sm:inline-flex"
-                >
-                  View All Tools
-                </button>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {quickActions.map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    onClick={() => openExternalLink(action.label, action.href)}
-                    title={action.description}
-                    className="group flex min-h-[76px] items-center gap-3 rounded-[1rem] border border-slate-200 bg-slate-50 px-3 py-3 text-left transition hover:border-[#0076d3]/40 hover:bg-white hover:shadow-sm"
-                  >
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.9rem] bg-white text-[#003f87] shadow-sm transition group-hover:bg-[#003f87] group-hover:text-white">
-                      <i className={`${action.icon} text-sm`}></i>
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-black uppercase tracking-[0.16em] text-slate-700">
-                        {action.label}
-                      </span>
-                      <span className="mt-1 line-clamp-2 block text-xs font-semibold leading-4 text-slate-400">
-                        {action.description}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </div>
-        ) : activeMode === 'tools' ? (
-          <section className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_-60px_rgba(15,23,42,0.8)] sm:p-5">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Staff Tool Launcher</h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Operations, documents, forms, and property utilities grouped by workflow.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveMode('search')}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 transition hover:border-[#0076d3]/50 hover:text-[#003f87]"
-              >
-                Back To Search
-              </button>
-            </div>
-            <ProgramLauncher addToast={addToast} />
-          </section>
-        ) : null}
-
-        {/* Kept mounted (just hidden) so switching modes never interrupts an upload or loses the form. */}
-        <div hidden={activeMode !== 'docs'} className="overflow-hidden rounded-[1.35rem] border border-slate-200 shadow-[0_24px_70px_-60px_rgba(15,23,42,0.8)]">
-          <DocumentLinksCard active={activeMode === 'docs'} addToast={addToast} />
-        </div>
+        <section id="workspace-tools" aria-label="Tools workspace" hidden={workspace !== 'tools'}>
+          <ProgramLauncher addToast={addToast} />
+        </section>
+        <section id="workspace-images" aria-label="Images workspace" hidden={workspace !== 'images'}>
+          <QuickImageLinksCard active={workspace === 'images'} addToast={addToast} />
+        </section>
+        <section id="workspace-docs" aria-label="Document links workspace" hidden={workspace !== 'docs'}>
+          <DocumentLinksCard active={workspace === 'docs'} addToast={addToast} />
+        </section>
       </main>
+      {navigation(true)}
 
-      {toastStack}
+      <CommandPalette isOpen={showPalette} onClose={() => setShowPalette(false)} onClientSearch={handleQuickSearch} addToast={addToast} />
+      <Modal isOpen={showSettings} onClose={() => setShowSettings(false)} title="Settings and Help">
+        <div className="settings-row">
+          <label htmlFor="dark-appearance">Dark appearance</label>
+          <input id="dark-appearance" type="checkbox" role="switch" checked={theme === 'dark'} onChange={toggleTheme} />
+        </div>
+        <button type="button" className="settings-help" onClick={() => { setShowSettings(false); setShowPalette(true); }}>
+          <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+          Command Palette
+          <kbd>Ctrl + K</kbd>
+        </button>
+        <button type="button" className="settings-help" onClick={() => setShowHelp(true)}>
+          <i className="fa-solid fa-circle-question" aria-hidden="true" />
+          Keyboard Shortcuts
+          <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        </button>
+        <a className="settings-help" href="/logout">
+          <i className="fa-solid fa-right-from-bracket" aria-hidden="true" />
+          Sign out
+        </a>
+      </Modal>
+      <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Keyboard Shortcuts" maxWidthClass="max-w-lg">
+        <dl className="shortcut-list">
+          {[
+            ['Unified Search', '/'], ['Command Palette', 'Ctrl + K / Ctrl + M'],
+            ['Dark Appearance', 'Ctrl + D'], ['Close Dialog', 'Esc'],
+            ['Web Search', 'Alt + W'], ['Real Estate', 'Alt + H'],
+            ['People Search', 'Alt + P'], ['Client Folder', 'Alt + F'],
+            ['Contact Numbers', 'Alt + C'], ['Audit Memo', 'Alt + N / Ctrl + Shift + M'],
+          ].map(([label, shortcut]) => <div key={label}><dt>{label}</dt><dd><kbd>{shortcut}</kbd></dd></div>)}
+        </dl>
+      </Modal>
+      <div className="toast-stack" aria-label="Notifications">
+        {toasts.map((toast) => <Toast key={toast.id} message={toast.message} type={toast.type} action={toast.action} onDismiss={() => dismissToast(toast.id)} />)}
+      </div>
     </div>
   );
 }

@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
-    "dompurify": "^3.4.15",
+    "dompurify": "^3.4.17",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
@@ -21,6 +21,9 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^3.4.19",
     "typescript": "~5.9.3",
     "vite": "^6.2.0"
   }

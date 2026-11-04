@@ -275,12 +275,16 @@ test('delete: Command Center only, same-origin, validated, forwarded with the to
   assert.equal(failed.status, 502);
 });
 
-test('the library tells each dashboard whether it may delete', async () => {
+test('the library enforces staff delete and Gmail draft capabilities', async () => {
   const mine = await docLinksHandler(await ctx(), recorder(jsonResponse({ items: [good], cursor: null })).fetcher);
-  assert.equal((await mine.json()).canDelete, true);
+  const mineFlags = await mine.json();
+  assert.equal(mineFlags.canDelete, true);
+  assert.equal(mineFlags.canGmailDraft, true);
   const staffEnv = { ...env, APP_ID: 'agency-staff-dashboard' };
   const staff = await docLinksHandler(await ctx({ e: staffEnv }), recorder(jsonResponse({ items: [good], cursor: null })).fetcher);
-  assert.equal((await staff.json()).canDelete, false);
+  const staffFlags = await staff.json();
+  assert.equal(staffFlags.canDelete, false);
+  assert.equal(staffFlags.canGmailDraft, false);
 });
 
 test('age filter and last customer activity', () => {

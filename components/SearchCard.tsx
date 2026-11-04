@@ -1,750 +1,613 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import DOMPurify from 'dompurify';
-import type { SearchMode } from '../types';
-import { MODE_META, NC_COUNTY_GIS_DATA, DEFAULT_INSURANCE_PORTALS } from '../constants';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import type { Portal, SearchMode } from '../types';
+import { MODE_META, NC_COUNTY_GIS_DATA, DEFAULT_INSURANCE_PORTALS, MORE_CARRIER_PORTALS } from '../constants';
 import Modal from './Modal';
+import { requestAi } from '../services/aiClient';
+import type { AiTask, AiAttachment } from '../services/aiClient';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import ContactLookup from './ContactLookup';
-import { requestAi, type AiAttachment } from '../services/aiClient';
+import HomeQuoteWorkspace from './HomeQuoteWorkspace';
+import VinLookup from './VinLookup';
+import AutoQuoteWorkspace from './AutoQuoteWorkspace';
+import { looksLikeVin } from '../shared/vin';
+import { looksLikeProspectName } from '../shared/autoQuote';
+import DOMPurify from 'dompurify';
 
 interface SearchCardProps {
   addToast: (message: string, type?: 'success' | 'warning' | 'danger' | 'info') => void;
   searchCount: number;
   onSearch: () => void;
+  active?: boolean;
 }
-
-const NOTES_DRAFT_KEY = 'staff-dashboard:notes-draft:v1';
-
-const readNotesDraft = (): { customerName: string; customerNotes: string } => {
+/**
+ * Real Estate mode opens Bill's Find My Home property lookup. That site reads
+ * `?address=` on load (src/App.tsx in Playground/find-my-home-information) and
+ * runs the lookup automatically. Replaced the NC Insurance Tools link 2026-10-27.
+ */
+const FIND_MY_HOME_URL = 'https://find-my-home-information.pages.dev/';
+const buildFindMyHomeUrl = (address: string) =>
+  FIND_MY_HOME_URL + '?address=' + encodeURIComponent(address.trim());
+const BLI_CLIENTS_DRIVE_ID = '0AHhWG49MZdQjUk9PVA';
+// Use the staff member's signed-in Google account and existing Drive permissions.
+const withAuthUser = (url: string) => url;
+const clientFoldersRootUrl = () => withAuthUser('https://drive.google.com/drive/folders/' + BLI_CLIENTS_DRIVE_ID);
+const clientFolderSearchUrl = (name: string) =>
+  withAuthUser('https://drive.google.com/drive/search?q=' + encodeURIComponent('title:' + name.trim()));
+const matrixUrl = (name: string) => 'https://agents.agencymatrix.com/#/customer/search?selection=' +
+  (/\d+/.test(name) ? 'Address' : 'Name') + '&query=' + encodeURIComponent(name);
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please retry.';
+const isCancelled = (error: unknown) => error instanceof Error && error.name === 'AbortError';
+const DRAFT_KEY = 'staff-dashboard:notes-draft:v1';
+const MAX_AI_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_AI_BASE64_BYTES = 14 * 1024 * 1024;
+const AI_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const LOCAL_LOGOS: Record<string, string> = {
+  nationwide: '/nationwide.png', 'national-general': '/national_general.png',
+  progressive: '/progressive.png', foremost: '/foremost.jpg', 'nc-grange': '/nc_grange.png', ncjua: '/ncjua.png',
+};
+interface MemoDraft { customerName: string; text: string; originalText: string | null }
+const emptyDraft = (): MemoDraft => ({ customerName: '', text: '', originalText: null });
+const readDraft = (): MemoDraft => {
   try {
-    const draft = JSON.parse(sessionStorage.getItem(NOTES_DRAFT_KEY) || 'null');
-    if (typeof draft?.customerName === 'string' && typeof draft?.customerNotes === 'string') return draft;
-  } catch {
-    // Storage may be unavailable; the current memo still works in memory.
-  }
-  return { customerName: '', customerNotes: '' };
+    const value = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null');
+    const text = typeof value?.text === 'string' ? value.text : value?.customerNotes;
+    if (value && typeof value.customerName === 'string' && typeof text === 'string') {
+      return { customerName: value.customerName, text,
+        originalText: typeof value.originalText === 'string' ? value.originalText : null };
+    }
+  } catch { /* Blocked storage must not prevent editing. */ }
+  return emptyDraft();
 };
-
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === 'string') return error;
-  return 'Unknown AI error';
+const writeDraft = (draft: MemoDraft) => {
+  if (!draft.customerName && !draft.text && draft.originalText === null) sessionStorage.removeItem(DRAFT_KEY);
+  else sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
 };
-
-const parseJsonFromText = <T,>(text: string): T => {
-  const trimmed = text.trim();
-  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fencedMatch?.[1]?.trim() || trimmed;
-  const firstBrace = candidate.indexOf('{');
-  const lastBrace = candidate.lastIndexOf('}');
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-    throw new Error('AI did not return valid JSON.');
-  }
-  return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)) as T;
+const validateAiFiles = (files: File[]) => {
+  if (files.some(file => !AI_FILE_TYPES.includes(file.type) || !file.size)) throw new Error('Attach a nonempty PDF, JPG, PNG, WebP, or GIF.');
+  if (files.reduce((sum, file) => sum + file.size, 0) > MAX_AI_FILE_BYTES) throw new Error('Attachments exceed the 10 MiB total limit.');
 };
-
-const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch }) => {
-  const [mode, setMode] = useState<SearchMode>('agency');
-  const [query, setQuery] = useState('');
-  const [isGisModalOpen, setIsGisModalOpen] = useState(false);
-  const [gisInfo, setGisInfo] = useState<{ county: string; url: string; note?: string } | null>(null);
-  const [isGisSearching, setIsGisSearching] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [reportHtml, setReportHtml] = useState('');
-  const [reportSubject, setReportSubject] = useState('');
-  
-  // Real Estate Files State
-  const [propertyFiles, setPropertyFiles] = useState<File[]>([]);
-  const propertyFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Notes Modal State
-  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-  const [isNotesMinimized, setIsNotesMinimized] = useState(false);
-  const [initialNotesDraft] = useState(readNotesDraft);
-  const [customerName, setCustomerName] = useState(initialNotesDraft.customerName);
-  const [customerNotes, setCustomerNotes] = useState(initialNotesDraft.customerNotes);
-  const [isOrganizingNotes, setIsOrganizingNotes] = useState(false);
-  const draftWarningShown = useRef(false);
-  
-  // Notes File Staging State
-  const [isProcessingNotesFile, setIsProcessingNotesFile] = useState(false);
-  const [stagedNotesFile, setStagedNotesFile] = useState<{ data: string, mimeType: string, name: string } | null>(null);
-  const notesFileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    try {
-      // Keep text in this tab only; do not persist attached customer documents.
-      if (customerName || customerNotes) {
-        sessionStorage.setItem(NOTES_DRAFT_KEY, JSON.stringify({ customerName, customerNotes }));
-      } else {
-        sessionStorage.removeItem(NOTES_DRAFT_KEY);
-      }
-      draftWarningShown.current = false;
-    } catch {
-      if (!draftWarningShown.current) {
-        addToast('Draft storage is unavailable. Keep this memo open or copy it before leaving.', 'warning');
-        draftWarningShown.current = true;
+const readAttachment = (file: File, signal: AbortSignal): Promise<AiAttachment> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  const cancel = () => reader.abort();
+  const cleanup = () => signal.removeEventListener('abort', cancel);
+  reader.onload = () => {
+    cleanup();
+    if (signal.aborted) return reject(new DOMException('Request cancelled.', 'AbortError'));
+    resolve({ mimeType: file.type, data: String(reader.result).split(',')[1], name: file.name });
+  };
+  reader.onerror = () => { cleanup(); reject(new Error('Could not read ' + file.name + '. Please attach it again.')); };
+  reader.onabort = () => { cleanup(); reject(new DOMException('Request cancelled.', 'AbortError')); };
+  if (signal.aborted) return reject(new DOMException('Request cancelled.', 'AbortError'));
+  signal.addEventListener('abort', cancel, { once: true });
+  reader.readAsDataURL(file);
+});
+const parseJsonFromText = <T,>(text: string): T => JSON.parse(text) as T;
+const safeWebUrl = (value: string) => {
+  const url = new URL(value);
+  if (!['https:', 'http:'].includes(url.protocol)) throw new Error('The response included an invalid web link. Please retry.');
+  return url.href;
+};
+// AI markup remains untrusted when copied, downloaded, or printed.
+const safeReportHtml = (html: string) => {
+  const clean = DOMPurify.sanitize(html, {
+    WHOLE_DOCUMENT: true,
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'meta', 'base', 'link'],
+    FORBID_ATTR: ['srcdoc', 'formaction', 'action', 'srcset'],
+  });
+  const doc = new DOMParser().parseFromString(clean, 'text/html');
+  doc.querySelectorAll('*').forEach(node => {
+    for (const attr of Array.from(node.attributes)) {
+      if (/^on/i.test(attr.name) || ['srcdoc', 'formaction', 'action', 'srcset'].includes(attr.name)) node.removeAttribute(attr.name);
+      if (['href', 'src', 'xlink:href'].includes(attr.name)) {
+        try { node.setAttribute(attr.name, safeWebUrl(attr.value)); } catch { node.removeAttribute(attr.name); }
       }
     }
-  }, [customerName, customerNotes, addToast]);
+    if (node.tagName === 'A') { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noopener noreferrer'); }
+  });
+  return '<!doctype html>\n' + doc.documentElement.outerHTML;
+};
+type SearchEntry = string | { query: string; mode: SearchMode };
 
-  const GOOGLE_DRIVE_CONSTANTS = {
-      agencyEmail: 'docs@billlayneinsurance.com',
-      clientsFolderId: '11O0Cm9gOdgXp_j8OXMO4Pm5tqh18uXd5'
-  };
-
+const SearchCard: React.FC<SearchCardProps> = ({ addToast, searchCount, onSearch, active = true }) => {
+  const [mode, setMode] = useState<SearchMode>('agency');
+  const [query, setQuery] = useState('');
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [vinOpen, setVinOpen] = useState(false);
+  const [autoQuoteOpen, setAutoQuoteOpen] = useState(false);
+  const [autoQuoteHasDraft, setAutoQuoteHasDraft] = useState(false);
+  const [quoteHasDraft, setQuoteHasDraft] = useState(false);
+  const [searchHistory, setSearchHistory] = useLocalStorage<SearchEntry[]>('matrix-pro-search-history', []);
+  const [showMoreCarriers, setShowMoreCarriers] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isGisModalOpen, setIsGisModalOpen] = useState(false);
+  const [gisInfo, setGisInfo] = useState<{ county: string; url: string; note?: string } | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportHtml, setReportHtml] = useState('');
+  const [reportSubject, setReportSubject] = useState('');
+  const [propertyFiles, setPropertyFiles] = useState<File[]>([]);
+  const propertyFileInputRef = useRef<HTMLInputElement>(null);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [isNotesMinimized, setIsNotesMinimized] = useState(false);
+  const [draft, setDraft] = useState<MemoDraft>(readDraft);
+  const { customerName, text: customerNotes } = draft;
+  const setCustomerName = (value: string) => setDraft(prev => ({ ...prev, customerName: value }));
+  const setCustomerNotes = (value: string) => setDraft(prev => ({ ...prev, text: value }));
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const [draftStatus, setDraftStatus] = useState(() => draft.text || draft.customerName ? 'Restored draft on this device' : '');
+  const [storageError, setStorageError] = useState('');
+  const [stagedNotesFile, setStagedNotesFile] = useState<File | null>(null);
+  const notesFileInputRef = useRef<HTMLInputElement>(null);
+  const [busyTask, setBusyTask] = useState<AiTask | null>(null);
+  const [isCopying, setIsCopying] = useState(false);
+  const [notesError, setNotesError] = useState('');
+  const [notesNotice, setNotesNotice] = useState('');
+  const [propertyError, setPropertyError] = useState('');
+  const [searchError, setSearchError] = useState('');
+  const [lastNotesTask, setLastNotesTask] = useState<AiTask | null>(null);
+  const [lastPropertyTask, setLastPropertyTask] = useState<AiTask | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const popupRef = useRef<Window | null>(null);
+  const mountedRef = useRef(true);
+  const notesBusy = busyTask === 'organize-notes' || busyTask === 'extract-notes';
+  const isGeneratingReport = busyTask === 'property-report';
+  const isGisSearching = busyTask === 'county-map';
+  const isOrganizingNotes = busyTask === 'organize-notes';
+  const isProcessingNotesFile = busyTask === 'extract-notes';
+  const hasDraft = Boolean(customerName || customerNotes || stagedNotesFile || draft.originalText !== null);
+  const persistDraft = useCallback(() => {
+    try {
+      writeDraft(draftRef.current);
+      if (mountedRef.current) {
+        setStorageError('');
+        setDraftStatus(draftRef.current.text || draftRef.current.customerName ? 'Draft saved on this device' : '');
+      }
+    } catch {
+      if (mountedRef.current) setStorageError('Draft could not be saved on this device. Keep this page open or copy the text before leaving.');
+    }
+  }, []);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isTyping = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName);
-      if (e.key === '/' && !isTyping) {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-        return;
+    setDraftStatus(draft.text || draft.customerName ? 'Saving draft...' : '');
+    const timer = window.setTimeout(persistDraft, 450);
+    return () => clearTimeout(timer);
+  }, [draft, persistDraft]);
+  useEffect(() => {
+    mountedRef.current = true;
+    const flush = () => persistDraft();
+    window.addEventListener('pagehide', flush);
+    const hidden = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      mountedRef.current = false;
+      requestRef.current?.abort();
+      popupRef.current?.close();
+      persistDraft();
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', hidden);
+    };
+  }, [persistDraft]);
+  const cancelRequest = useCallback(() => {
+    requestRef.current?.abort(); requestRef.current = null; setBusyTask(null);
+  }, []);
+  useEffect(() => {
+    if (!active) {
+      cancelRequest(); setIsGisModalOpen(false); setIsReportModalOpen(false);
+      setIsNotesModalOpen(false); setIsNotesMinimized(true); persistDraft();
+    }
+  }, [active, cancelRequest, persistDraft]);
+  const handleNotesOpen = () => {
+    if (!hasDraft && query.trim()) setCustomerName(query.trim());
+    setIsNotesModalOpen(true); setIsNotesMinimized(false);
+  };
+  const handleNotesClose = () => {
+    if (notesBusy) cancelRequest();
+    persistDraft(); setIsNotesModalOpen(false); setIsNotesMinimized(true);
+  };
+  useEffect(() => {
+    if (!active) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const inEditor = target?.isContentEditable || target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])');
+      if (event.defaultPrevented || event.isComposing || document.querySelector('[role="dialog"],dialog[open]') || inEditor) return;
+      if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault(); inputRef.current?.focus(); inputRef.current?.select(); return;
       }
-      
-      // Audit Memo Shortcuts: 
-      // 1. Alt + N (Legacy)
-      // 2. Ctrl + Shift + M (Memo/Compliance Studio) - Matches Ctrl+M pattern
-      if ((e.altKey && e.key.toLowerCase() === 'n') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'm')) {
-          e.preventDefault();
-          if (query.trim() && !customerName && !customerNotes && !stagedNotesFile) {
-            setCustomerName(query.trim());
-          }
-          setIsNotesModalOpen(true);
-          setIsNotesMinimized(false);
-          addToast('Audit Memo Studio Opened', 'info');
-          return;
+      if ((event.altKey && event.key.toLowerCase() === 'n') ||
+          ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'm')) {
+        event.preventDefault(); handleNotesOpen(); return;
       }
-
-      if (e.altKey) {
-          const key = e.key.toLowerCase();
-          let newMode: SearchMode | null = null;
-          let modeName = '';
-          switch(key) {
-              case 'w': newMode = 'web'; modeName = 'Web Search'; break;
-              case 'h': newMode = 'realestate'; modeName = 'Real Estate'; break;
-              case 'p': newMode = 'people'; modeName = 'People Search'; break;
-              case 'f': newMode = 'onedrive'; modeName = 'Client Folder'; break;
-              case 'c': newMode = 'contacts'; modeName = 'Contact Numbers'; break;
-          }
-          if (newMode) {
-              e.preventDefault();
-              setMode(newMode);
-              inputRef.current?.focus();
-              addToast(`Switched to ${modeName}`, 'info');
-          }
-      }
+      const shortcuts: Record<string, SearchMode> = { w: 'web', h: 'realestate', p: 'people', f: 'onedrive', c: 'contacts' };
+      const next = event.altKey ? shortcuts[event.key.toLowerCase()] :
+        (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'm' ? 'agency' : undefined;
+      if (next) { event.preventDefault(); setMode(next); inputRef.current?.focus(); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addToast, query, customerName, customerNotes, stagedNotesFile]);
+  }, [active, query, hasDraft]);
+  useEffect(() => {
+    if (!showMoreCarriers || !active) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setShowMoreCarriers(false); };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [showMoreCarriers, active]);
 
-  const handleSearch = () => {
-    if (!query.trim()) {
-      addToast('Please enter a search term', 'warning');
-      inputRef.current?.focus();
-      return;
-    }
-    if (mode === 'contacts') {
-      onSearch();
-      addToast('Saved company contact matches are shown below.', 'info');
-      return;
-    }
+  const historyEntries = (Array.isArray(searchHistory) ? searchHistory : []).flatMap(entry => {
+    if (typeof entry === 'string') return [{ query: entry, mode: null as SearchMode | null }];
+    return entry && typeof entry.query === 'string' && Object.prototype.hasOwnProperty.call(MODE_META, entry.mode) ? [entry] : [];
+  }).slice(0, 6);
+  const runSearch = (value = query, selectedMode = mode) => {
+    if (!value.trim()) { setSearchError('Enter a search term.'); inputRef.current?.focus(); return; }
+    setSearchError(''); setQuery(value); setMode(selectedMode);
+    setSearchHistory(prev => [{ query: value.trim(), mode: selectedMode }, ...(Array.isArray(prev) ? prev : []).filter(entry => {
+      const text = typeof entry === 'string' ? entry : entry?.query;
+      return typeof text === 'string' && !(text.toLowerCase() === value.trim().toLowerCase() && (typeof entry === 'string' || entry.mode === selectedMode));
+    })].slice(0, 6));
     onSearch();
     let url = '';
-    switch (mode) {
-      case 'agency':
-        const selection = /\d+/.test(query) ? "Address" : "Name";
-        url = `https://agents.agencymatrix.com/#/customer/search?selection=${selection}&query=${encodeURIComponent(query)}`;
-        break;
-      case 'web':
-        url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        break;
-      case 'realestate':
-        url = `https://www.zillow.com/homes/${encodeURIComponent(query)}_rb/`;
-        break;
-      case 'people':
-        url = `https://www.truepeoplesearch.com/results?name=${encodeURIComponent(query)}`;
-        break;
-      case 'onedrive': {
-        const clientName = query.trim();
-        url = `https://drive.google.com/drive/u/1/search?q=${encodeURIComponent(clientName)}`;
-        break;
-      }
+    switch (selectedMode) {
+      case 'agency': url = matrixUrl(value); break;
+      case 'web': url = 'https://www.google.com/search?q=' + encodeURIComponent(value); break;
+      case 'realestate': url = buildFindMyHomeUrl(value); break;
+      case 'people': url = 'https://www.truepeoplesearch.com/results?name=' + encodeURIComponent(value); break;
+      case 'onedrive': url = clientFolderSearchUrl(value); break;
+      case 'contacts': return;
     }
-    window.open(url, '_blank');
-    addToast(`Searching ${mode}...`, 'info');
-    setQuery('');
+    const opened = window.open(url, '_blank');
+    if (opened) opened.opener = null;
+    else setSearchError('The search window was blocked. Allow pop-ups and retry.');
   };
-
-  const fileToBase64 = (file: File): Promise<string> => {
-      return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => {
-              const result = reader.result as string;
-              const base64 = result.split(',')[1];
-              resolve(base64);
-          };
-          reader.onerror = (error) => reject(error);
-      });
+  const handleSearch = () => runSearch();
+  const handleFindMyHomeOpen = () => runSearch(query, 'realestate');
+  const handleNewFolder = () => {
+    const opened = window.open(query.trim() ? clientFolderSearchUrl(query) : clientFoldersRootUrl(), '_blank');
+    if (opened) opened.opener = null;
+    else setSearchError('The folder window was blocked. Allow pop-ups and retry.');
   };
-
-  const handlePropertyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) {
-          const newFiles = Array.from(e.target.files);
-          setPropertyFiles(prev => [...prev, ...newFiles]);
-          addToast(`${newFiles.length} file(s) attached for analysis.`, 'info');
-      }
+  const handlePropertyFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = [...propertyFiles, ...Array.from(event.target.files || [])];
+    event.target.value = '';
+    try { validateAiFiles(files); setPropertyFiles(files); setPropertyError(''); }
+    catch (error) { setPropertyError(getErrorMessage(error)); }
   };
-
-  const removePropertyFile = (index: number) => {
-      setPropertyFiles(prev => prev.filter((_, i) => i !== index));
+  const removePropertyFile = (index: number) => setPropertyFiles(prev => prev.filter((_, i) => i !== index));
+  const handleNotesFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    try { validateAiFiles([file]); setStagedNotesFile(file); setNotesError(''); }
+    catch (error) { setNotesError(getErrorMessage(error)); }
   };
-
-  const getCountyFromAddress = (address: string): string | null => {
-    const lowerAddress = address.toLowerCase();
-    for (const countyKey in NC_COUNTY_GIS_DATA) {
-      if (lowerAddress.includes(countyKey)) return countyKey;
-    }
-    return null;
-  };
-
-  const handleGisSearch = async () => {
-    if (!query.trim()) {
-      addToast('Please enter an address for GIS search.', 'warning');
-      inputRef.current?.focus();
-      return;
-    }
-    setIsGisSearching(true);
+  const runAiTask = async (task: AiTask) => {
+    if (requestRef.current || isCopying) return;
+    const forNotes = task === 'organize-notes' || task === 'extract-notes';
+    if (task === 'organize-notes' && !customerNotes.trim()) return;
+    if (task === 'extract-notes' && !stagedNotesFile) return;
+    if (!forNotes && !query.trim()) { setPropertyError('Enter a property address.'); return; }
+    const controller = new AbortController();
+    requestRef.current = controller; setBusyTask(task);
+    if (forNotes) { setNotesError(''); setNotesNotice(''); setLastNotesTask(task); }
+    else { setPropertyError(''); setLastPropertyTask(task); }
+    if (task === 'property-report') { setIsReportModalOpen(true); setReportHtml(''); setReportSubject(''); }
+    if (task === 'county-map') { setGisInfo(null); setIsGisModalOpen(true); }
     try {
-        const response = await requestAi({ task: 'county-map', text: query.trim(), address: query.trim() });
-        const data = parseJsonFromText<{ county?: string; url: string; note?: string }>(response);
-        if (typeof data.url !== 'string' || !/^https?:\/\//i.test(data.url)) {
-            throw new Error('AI did not return a valid county map link.');
-        }
-        setGisInfo({ county: data.county || 'Unknown County', url: data.url, note: data.note });
-        setIsGisModalOpen(true);
-        addToast(`Found GIS for ${data.county}`, 'success');
+      const files = task === 'extract-notes' ? [stagedNotesFile!] : task === 'property-report' ? propertyFiles : [];
+      validateAiFiles(files);
+      const attachments: AiAttachment[] = [];
+      for (const file of files) attachments.push(await readAttachment(file, controller.signal));
+      if (attachments.reduce((sum, attachment) => sum + attachment.data.length, 0) > MAX_AI_BASE64_BYTES) throw new Error('Encoded attachments exceed 14 MiB. Remove a file and retry.');
+      const text = await requestAi({
+        task, text: forNotes ? customerNotes : query,
+        ...(forNotes ? { customerName } : { address: query.trim() }),
+        ...(task === 'extract-notes' ? { attachment: attachments[0] } : attachments.length ? { attachments } : {}),
+      }, { signal: controller.signal });
+      if (!mountedRef.current || controller.signal.aborted || requestRef.current !== controller) return;
+      if (forNotes) {
+        // Preserve exact pre-rewrite text, including original timestamps.
+        setDraft(prev => ({ ...prev, originalText: prev.text, text }));
+        setNotesNotice('AI draft ready for review. Verify dates and actions before pasting into Matrix.');
+      } else if (task === 'property-report') {
+        const data = parseJsonFromText<{ subject: string; htmlBody: string }>(text);
+        if (typeof data.subject !== 'string' || typeof data.htmlBody !== 'string' || !data.htmlBody.trim()) throw new Error('The report response was incomplete. Please retry.');
+        setReportHtml(safeReportHtml(data.htmlBody)); setReportSubject(data.subject);
+      } else {
+        const data = parseJsonFromText<{ county: string; url: string; note?: string }>(text);
+        if (typeof data.county !== 'string' || typeof data.url !== 'string') throw new Error('The county response was incomplete. Please retry.');
+        setGisInfo({ county: data.county, url: safeWebUrl(data.url), note: typeof data.note === 'string' ? data.note : undefined });
+      }
     } catch (error) {
-        const countyKey = getCountyFromAddress(query);
-        if (countyKey && NC_COUNTY_GIS_DATA[countyKey]) {
-            const countyData = NC_COUNTY_GIS_DATA[countyKey];
-            setGisInfo({ county: countyData.name, url: countyData.url.replace('{query}', encodeURIComponent(query)), note: countyData.note });
-            setIsGisModalOpen(true);
-            addToast('Using local database.', 'info');
-        } else {
-            addToast(`GIS Search failed: ${getErrorMessage(error)}`, 'danger');
+      if (!mountedRef.current || controller.signal.aborted || requestRef.current !== controller || isCancelled(error)) return;
+      if (forNotes) setNotesError(getErrorMessage(error));
+      else {
+        setPropertyError(getErrorMessage(error));
+        if (task === 'county-map') {
+          const county = Object.keys(NC_COUNTY_GIS_DATA).find(key => query.toLowerCase().includes(key));
+          if (county) {
+            const data = NC_COUNTY_GIS_DATA[county];
+            setGisInfo({ county: data.name, url: data.url.replace('{query}', encodeURIComponent(query)), note: 'Local directory fallback. ' + (data.note || '') });
+          }
         }
+      }
     } finally {
-        setIsGisSearching(false);
+      if (requestRef.current === controller) { requestRef.current = null; if (mountedRef.current) setBusyTask(null); }
     }
   };
-  
-  const handleGenerateReport = async () => {
-    if (!query.trim()) {
-        addToast('Please enter an address.', 'warning');
-        return;
-    }
-    setIsGeneratingReport(true);
-    setIsReportModalOpen(true);
-    setReportHtml('');
-    setReportSubject('');
-
+  const handleOrganizeNotes = () => void runAiTask('organize-notes');
+  const handleProcessNotesAi = () => void runAiTask('extract-notes');
+  const handleGenerateReport = () => void runAiTask('property-report');
+  const handleGisSearch = () => void runAiTask('county-map');
+  const handleNotesSave = async () => {
+    if (!customerName.trim() || !customerNotes.trim() || busyTask || isCopying) return;
+    setNotesError(''); setNotesNotice(''); setLastNotesTask(null); persistDraft();
+    // Reserve the popup during the click, before the asynchronous clipboard operation.
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    popupRef.current = popup; setIsCopying(true);
     try {
-        const attachments: AiAttachment[] = [];
-        for (const file of propertyFiles) {
-            attachments.push({ data: await fileToBase64(file), mimeType: file.type, name: file.name });
-        }
-        const response = await requestAi({
-            task: 'property-report',
-            text: query.trim(),
-            address: query.trim(),
-            attachments,
-        });
-        const data = parseJsonFromText<{ subject: string; htmlBody: string }>(response);
-        if (typeof data.subject !== 'string' || typeof data.htmlBody !== 'string' || !data.htmlBody.trim()) {
-            throw new Error('AI did not return a valid property report.');
-        }
-        setReportHtml(DOMPurify.sanitize(data.htmlBody, { WHOLE_DOCUMENT: true, FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'] }));
-        setReportSubject(data.subject);
-        addToast('High-Intelligence Report Generated!', 'success');
-    } catch (error) {
-        console.error(error);
-        addToast(`Report generation failed: ${getErrorMessage(error)}`, 'danger');
-        setIsReportModalOpen(false);
+      await navigator.clipboard.writeText(customerNotes);
+      if (!mountedRef.current) return;
+      if (popup && !popup.closed) popup.location.replace(matrixUrl(customerName));
+      setNotesNotice(popup && !popup.closed
+        ? 'Draft copied. Paste it into Matrix; nothing has been logged automatically.'
+        : 'Draft copied. The Matrix window was blocked or closed; use Open Matrix below.');
+      addToast('Memo draft copied. Paste into Matrix to save it.', 'success');
+    } catch {
+      popup?.close();
+      if (mountedRef.current) setNotesError('Clipboard access failed. Your draft is unchanged. Retry copying, or select and copy the notes manually.');
     } finally {
-        setIsGeneratingReport(false);
+      popupRef.current = null;
+      if (mountedRef.current) setIsCopying(false);
     }
   };
-
+  const discardDraft = () => {
+    if (!window.confirm('Discard this memo draft and its original text?')) return;
+    cancelRequest();
+    const cleared = emptyDraft(); draftRef.current = cleared;
+    setDraft(cleared); setStagedNotesFile(null); setNotesError(''); setNotesNotice(''); setLastNotesTask(null);
+    persistDraft(); setIsNotesModalOpen(false); setIsNotesMinimized(false);
+  };
   const handleReportDownload = () => {
     if (!reportHtml) return;
-    const blob = new Blob([reportHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${reportSubject.replace(/ /g, '_').replace(/[^a-z0-9_]/gi, '') || 'property_report'}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(new Blob([reportHtml], { type: 'text/html' }));
+    const link = document.createElement('a'); link.href = url;
+    link.download = (reportSubject.replace(/[^a-z0-9_-]/gi, '_') || 'property_report') + '.html';
+    link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-
   const handleReportPrint = () => {
-      if (!reportHtml) return;
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-          printWindow.document.write(reportHtml);
-          printWindow.document.close();
-          printWindow.focus();
-          printWindow.print();
-      }
+    if (!reportHtml) return;
+    const popup = window.open('', '_blank');
+    if (!popup) { setPropertyError('The print window was blocked. Allow pop-ups and retry.'); return; }
+    popup.opener = null; popup.document.write(reportHtml); popup.document.close(); popup.focus(); popup.print();
   };
-
   const handleReportEmail = async () => {
-      if (!reportHtml) return;
-      let contentToCopy = reportHtml;
-      const bodyContentMatch = reportHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-      if (bodyContentMatch && bodyContentMatch[1]) contentToCopy = bodyContentMatch[1];
-      try {
-          const blob = new Blob([contentToCopy], { type: 'text/html' });
-          // @ts-ignore
-          const clipboardItem = new ClipboardItem({ 'text/html': blob });
-          // @ts-ignore
-          await navigator.clipboard.write([clipboardItem]);
-          addToast('Ready for Gmail! Paste now.', 'success');
-      } catch (error) {
-          addToast('Direct copy failed. Code copied to clipboard.', 'info');
-          await navigator.clipboard.writeText(reportHtml);
-      }
-      window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(reportSubject)}`, '_blank');
-  };
-
-  const handleNewFolder = () => {
-    if (query.trim()) {
-        const clientName = query.trim();
-        window.open(`https://drive.google.com/drive/u/1/search?q=${encodeURIComponent(clientName)}`, '_blank');
-    } else {
-        window.open(`https://drive.google.com/drive/u/1/folders/1lqq_4WpQgydfChWVKZRB-PBNWTZy8ulz`, '_blank');
-    }
-  };
-
-  const handleNotesOpen = () => {
-    if (query.trim() && !customerName && !customerNotes && !stagedNotesFile) setCustomerName(query.trim());
-    setIsNotesModalOpen(true);
-    setIsNotesMinimized(false);
-  };
-
-  const handleOrganizeNotes = async () => {
-    if (!customerNotes.trim() || isOrganizingNotes || isProcessingNotesFile) return;
-    setIsOrganizingNotes(true);
+    if (!reportHtml || isCopying) return;
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    popupRef.current = popup; setIsCopying(true); setPropertyError('');
     try {
-        const response = await requestAi({ task: 'organize-notes', text: customerNotes, customerName });
-        setCustomerNotes(current => current === customerNotes ? response : `${current}\n\n--- ORGANIZED MEMO ---\n${response}`);
-        addToast('E&O Smart Memo Generated!', 'success');
+      const content = new DOMParser().parseFromString(reportHtml, 'text/html').body;
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([content.innerHTML], { type: 'text/html' }),
+        'text/plain': new Blob([content.textContent || ''], { type: 'text/plain' }),
+      })]);
+      if (!mountedRef.current) return;
+      if (!popup || popup.closed) throw new Error('Report copied, but Gmail was blocked. Open Gmail and paste the report.');
+      popup.location.replace('https://mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(reportSubject));
+      addToast('Report copied. Paste into the Gmail compose window.', 'success');
     } catch (error) {
-        addToast(`Failed to build memo: ${getErrorMessage(error)}`, 'danger');
+      popup?.close();
+      if (mountedRef.current) setPropertyError(getErrorMessage(error) + ' The report is preserved.');
     } finally {
-        setIsOrganizingNotes(false);
+      popupRef.current = null;
+      if (mountedRef.current) setIsCopying(false);
     }
   };
 
-  const handleNotesFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      
-      try {
-          const base64 = await fileToBase64(file);
-          setStagedNotesFile({ data: base64, mimeType: file.type, name: file.name });
-          addToast(`Document "${file.name}" staged. Add your context and process.`, 'info');
-      } catch (error) {
-          addToast('Failed to stage file.', 'danger');
-      } finally {
-          if (e.target) e.target.value = '';
-      }
-  };
+  // Shared by the Favorite companies row and the More carriers panel so both stay identical.
+  const renderPortalChip = (portal: Portal) => (
+    <a key={portal.id} href={portal.url} target="_blank" rel="noopener noreferrer" title={portal.description} className="finder-chip finder-portal">
+      {/* Dark mode: carrier artwork is dark ink, so the logo sits on a light plate. */}
+      <span className="finder-portal-logo">
+        {(LOCAL_LOGOS[portal.id] || portal.image)
+          ? <img src={LOCAL_LOGOS[portal.id] || portal.image} alt="" />
+          : <i className={portal.icon} style={{ color: portal.color || undefined }} aria-hidden="true" />}
+      </span>
+      <span className="finder-chip-label">{portal.name}</span>
+      <i className="fa-solid fa-arrow-up-right-from-square finder-chip-ext" aria-hidden="true" />
+    </a>
+  );
 
-  const handleProcessNotesAi = async () => {
-      if (!stagedNotesFile || isProcessingNotesFile || isOrganizingNotes) return;
-
-      setIsProcessingNotesFile(true);
-      try {
-          const response = await requestAi({
-              task: 'extract-notes',
-              text: customerNotes,
-              customerName,
-              attachment: stagedNotesFile,
-          });
-          const summary = response.trim();
-          setCustomerNotes(prev => prev ? `${prev}\n\n--- AUDIT MEMO (${stagedNotesFile.name}) ---\n${summary}` : summary);
-          setStagedNotesFile(current => current === stagedNotesFile ? null : current);
-          addToast('Document audit completed!', 'success');
-
-      } catch (error) {
-          const msg = error instanceof Error ? error.message : "Unknown error";
-          addToast(`Audit failed: ${msg}`, 'danger');
-      } finally {
-          setIsProcessingNotesFile(false);
-      }
-  };
-
-  const handleNotesSave = async () => {
-      if (!customerName.trim() || !customerNotes.trim()) return;
-      const estTs = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
-      const timestampedNotes = `[CRM MEMO LOGGED: ${estTs}]\n${customerNotes}`;
-      try {
-          await navigator.clipboard.writeText(timestampedNotes);
-      } catch {
-          addToast('Could not copy the memo. Your draft is unchanged; copy it manually or retry.', 'danger');
-          return;
-      }
-      addToast('Memo copied. Paste it into Matrix; your draft is retained.', 'success');
-      window.open(`https://agents.agencymatrix.com/#/customer/search?selection=${/\d+/.test(customerName) ? "Address" : "Name"}&query=${encodeURIComponent(customerName)}`, '_blank');
-      handleNotesClose();
-  };
-
-  const handleNotesClose = () => {
-    setIsNotesModalOpen(false);
-    setIsNotesMinimized(false);
-  };
-
-  const handleNotesDiscard = () => {
-    if (isOrganizingNotes || isProcessingNotesFile) return;
-    if ((customerName || customerNotes || stagedNotesFile) && !window.confirm('Discard this memo draft and its attachment?')) return;
-    handleNotesClose();
-    setCustomerName('');
-    setCustomerNotes('');
-    setStagedNotesFile(null);
-  };
-
-  const modeButtons: { mode: SearchMode, icon: string, label: string, shortcut: string }[] = [
-    { mode: 'agency', icon: 'fa-shield-halved', label: 'Agency Matrix', shortcut: 'Ctrl + M' },
-    { mode: 'web', icon: 'fa-brands fa-google', label: 'Web Search', shortcut: 'Alt + W' },
-    { mode: 'realestate', icon: 'fa-solid fa-house', label: 'Real Estate', shortcut: 'Alt + H' },
-    { mode: 'people', icon: 'fa-solid fa-user', label: 'People', shortcut: 'Alt + P' },
-    { mode: 'onedrive', icon: 'fa-brands fa-google-drive', label: 'Client Folder', shortcut: 'Alt + F' },
-    { mode: 'contacts', icon: 'fa-solid fa-address-book', label: 'Contact Numbers', shortcut: 'Alt + C' },
+  const modeButtons: { mode: SearchMode, icon: string, label: string, shortcut: string, description: string, action: string }[] = [
+    { mode: 'agency', icon: 'fa-solid fa-shield-halved', label: 'Agency Matrix', shortcut: 'Ctrl + M', description: 'Find customer accounts', action: 'Search Matrix' },
+    { mode: 'web', icon: 'fa-solid fa-globe', label: 'Web Search', shortcut: 'Alt + W', description: 'Search the web', action: 'Search Web' },
+    { mode: 'realestate', icon: 'fa-solid fa-house', label: 'Real Estate', shortcut: 'Alt + H', description: 'Look up property information', action: 'Search Property' },
+    { mode: 'people', icon: 'fa-solid fa-user', label: 'People', shortcut: 'Alt + P', description: 'Find people and addresses', action: 'Search People' },
+    { mode: 'onedrive', icon: 'fa-solid fa-folder-open', label: 'Client Folder', shortcut: 'Alt + F', description: 'Open customer documents', action: 'Search Folder' },
+    { mode: 'contacts', icon: 'fa-solid fa-phone', label: 'Contact Numbers', shortcut: 'Alt + C', description: 'Find phone numbers', action: 'Find Contacts' },
   ];
+  const currentMode = modeButtons.find(button => button.mode === mode) ?? modeButtons[0];
 
+  const buttonClass = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10';
+  const primaryClass = buttonClass + ' bg-[#003f87] !text-white hover:!bg-[#0076d3] dark:hover:!bg-[#0076d3]';
+  const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-60 dark:border-white/20 dark:bg-white/5 dark:text-white';
+  const signInLink = <a href="/login" target="_blank" rel="noopener noreferrer" className={buttonClass + ' mt-2'}><i className="fa-solid fa-right-to-bracket" aria-hidden="true" />Sign In Again</a>;
+  const propertyFeedback = propertyError && <div role="alert" className="my-3 text-sm text-rose-700 dark:text-rose-300">
+    <p>{propertyError}</p>
+    {/session|sign.in|access.*denied/i.test(propertyError) && signInLink}
+    {lastPropertyTask && <button className={buttonClass + ' mt-2'} disabled={Boolean(busyTask) || !query.trim()} onClick={() => void runAiTask(lastPropertyTask)}><i className="fa-solid fa-rotate-right" aria-hidden="true" /> Retry</button>}
+  </div>;
   return (
     <>
-      <div className="bg-white/90 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-[26px] p-4 shadow-2xl transition-all duration-300 hover:translate-y-[-2px] hover:shadow-button-glow/20 sm:rounded-[32px] sm:p-6 md:p-7 relative overflow-hidden group">
-        
-        {/* Dynamic Background Mesh */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-secondary/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
-        
-        <div className="relative z-10 mb-5 flex flex-col gap-3 sm:mb-7 md:flex-row md:items-end md:justify-between md:gap-4">
+      <section aria-label="Unified Search" className="finder">
+        <div className="finder-hero">
+          <div className="finder-heading">
             <div>
-                <h2 className="font-outfit text-[1.65rem] font-black tracking-tight text-slate-800 dark:text-text-dark sm:text-3xl md:text-4xl flex items-center gap-3 sm:gap-4">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl shadow-black/20 dark:from-white dark:to-slate-200 dark:text-slate-900 dark:shadow-white/10 sm:h-12 sm:w-12 sm:rounded-[16px]">
-                        <i className="fa-solid fa-magnifying-glass-dollar text-lg sm:text-xl md:text-2xl"></i>
-                    </span>
-                    Unified Search
-                </h2>
-                <p className="mt-2 max-w-xl pl-1 text-[13px] font-medium leading-5 text-slate-500 dark:text-slate-300 sm:mt-3 sm:text-sm">
-                    Access policies, property records, and document twins instantly.
-                </p>
+              <h2>Find a customer.</h2>
+              <p>One search. The right destination.</p>
             </div>
-            <div className="flex items-center gap-3">
-                 <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 dark:border-white/10 dark:bg-white/5">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300">System Online</span>
-                 </div>
-            </div>
-        </div>
-
-        <div className="relative z-10 mb-6 sm:mb-8">
-          <div className="relative group/input transform hover:scale-[1.01] transition-transform duration-300">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 sm:pl-6 pointer-events-none">
-                <i className={`fa-solid fa-magnifying-glass text-xl transition-colors duration-300 sm:text-2xl ${query ? 'text-primary dark:text-accent' : 'text-slate-300 dark:text-slate-600'}`}></i>
-              </div>
-              <input
-                ref={inputRef}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            <span className="finder-count">{searchCount} searches today</span>
+          </div>
+          <label htmlFor="unified-search-query" className="sr-only">
+            {mode === 'realestate' ? 'Property address' : mode === 'contacts' ? 'Company name' : mode === 'onedrive' ? 'Client name' : 'Name, address, or search term'}
+          </label>
+          <form onSubmit={event => { event.preventDefault(); handleSearch(); }} className="finder-form">
+            <div className="finder-field">
+              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <input ref={inputRef} id="unified-search-query" type="search" value={query} data-unified-search
+                onChange={event => { setQuery(event.target.value); setSearchError(''); }}
                 placeholder={MODE_META[mode].placeholder}
-                className="w-full rounded-[24px] border-4 border-slate-100 bg-white py-4 pl-12 pr-16 text-lg font-black text-slate-800 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] outline-none transition-all placeholder:text-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-700 dark:shadow-black/50 sm:rounded-[28px] sm:py-5 sm:pl-16 sm:pr-20 sm:text-xl md:text-2xl focus:border-primary/50 dark:focus:border-accent/50 backdrop-blur-xl"
-              />
-              <div className="absolute inset-y-0 right-2 flex items-center sm:right-3">
-                  <button 
-                    onClick={handleSearch}
-                    className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-gradient-to-br from-primary to-primary-light text-white shadow-lg transition-all hover:scale-105 hover:shadow-primary/40 active:scale-95 sm:h-12 sm:w-12"
-                  >
-                      <i className="fa-solid fa-arrow-right text-base"></i>
-                  </button>
-              </div>
-          </div>
-
-
-          {/* REAL ESTATE MODE: Additional File Upload UI */}
-          {mode === 'realestate' && (
-              <div className="mt-4 animate-slide-down">
-                  <div className="flex flex-wrap items-center gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-[24px] border border-slate-200 dark:border-white/10 shadow-sm backdrop-blur-lg">
-                      <div className="flex-1">
-                          <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-300 block mb-3 tracking-[2px]">Optional: Attach Evidence (Inspection/Appraisal/Photos)</label>
-                          <div className="flex gap-3 items-center">
-                              <button 
-                                  onClick={() => propertyFileInputRef.current?.click()}
-                                  className="px-4 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[11px] font-black text-primary dark:text-accent uppercase tracking-[2px] hover:shadow-md transition-all flex items-center gap-2 group/btn"
-                              >
-                                  <i className="fa-solid fa-paperclip text-base group-hover/btn:scale-110 transition-transform"></i> Attach Staging
-                              </button>
-                              <input type="file" multiple ref={propertyFileInputRef} onChange={handlePropertyFileChange} accept=".pdf,image/jpeg,image/png,image/webp,image/gif" className="hidden" />
-                              
-                              <div className="flex flex-wrap gap-2">
-                                  {propertyFiles.map((f, i) => (
-                                      <div key={i} className="bg-primary/10 text-primary dark:text-accent px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 border border-primary/20">
-                                          <span className="truncate max-w-[120px]">{f.name}</span>
-                                          <button onClick={() => removePropertyFile(i)} className="hover:text-red-500"><i className="fa-solid fa-times"></i></button>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      </div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-300 font-black uppercase tracking-[2px] italic max-w-[200px] opacity-60 text-right">
-                          AI will merge physical evidence with live data.
-                      </div>
-                  </div>
-              </div>
-          )}
-          
-          <div className="mt-5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
-             {modeButtons.map(btn => (
-                <button 
-                  key={btn.mode}
-                  onClick={() => setMode(btn.mode)}
-                  className={`shrink-0 rounded-xl border-2 px-4 py-3 text-[11px] font-bold uppercase tracking-[2px] transition-all duration-300 flex items-center gap-2 whitespace-nowrap relative overflow-hidden group ${
-                    mode === btn.mode 
-                      ? 'bg-slate-900 dark:bg-primary border-slate-900 dark:border-primary text-white shadow-glow scale-105' 
-                      : 'bg-transparent border-slate-200 dark:border-white/10 text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-primary dark:hover:text-white'
-                  }`}
-                >
-                  <i className={`fa-solid ${btn.icon} ${mode === btn.mode ? '' : 'text-slate-300 group-hover:text-primary dark:group-hover:text-white transition-colors'}`}></i> 
-                  {btn.label}
-                </button>
-              ))}
-          </div>
-        </div>
-
-        {mode === 'contacts' && (
-          <ContactLookup query={query} onQueryChange={setQuery} addToast={addToast} />
-        )}
-        
-        <div className={`relative z-10 grid grid-cols-2 gap-3 md:grid-cols-4 ${mode === 'realestate' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
-          <button onClick={handleSearch} className="col-span-2 w-full rounded-[22px] bg-gradient-to-br from-slate-900 to-slate-800 py-4 text-white shadow-2xl transition-all hover:scale-[1.01] hover:shadow-button-glow active:scale-95 dark:from-primary dark:to-primary-light md:col-span-4 lg:col-span-1 font-black flex flex-col items-center justify-center gap-2 group min-h-[86px] sm:min-h-24">
-              <i className="fa-solid fa-bolt text-xl group-hover:animate-pulse text-amber-300"></i>
-              <span className="text-xs uppercase tracking-[2px]">Execute</span>
-          </button>
-          
-          <button onClick={() => window.open("https://agents.agencymatrix.com/#/", "_blank")} className="bg-white dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 p-3 rounded-[22px] hover:border-primary/50 dark:hover:border-accent/50 hover:shadow-xl transition-all flex flex-col items-center justify-center gap-2 group text-center min-h-[86px] sm:min-h-24 backdrop-blur-md">
-              <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center group-hover:bg-primary/10 dark:group-hover:bg-accent/10 transition-colors">
-                <i className="fa-solid fa-building-shield text-slate-400 group-hover:text-primary dark:group-hover:text-accent text-lg"></i>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-[2px] text-slate-500 dark:text-slate-300 group-hover:text-primary dark:group-hover:text-accent">Matrix Home</span>
-          </button>
-
-          <button onClick={() => window.open("https://agents.agencymatrix.com/customerEdit.php?id=0", "_blank")} className="bg-white dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 p-3 rounded-[22px] hover:border-primary/50 dark:hover:border-accent/50 hover:shadow-xl transition-all flex flex-col items-center justify-center gap-2 group text-center min-h-[86px] sm:min-h-24 backdrop-blur-md">
-              <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center group-hover:bg-primary/10 dark:group-hover:bg-accent/10 transition-colors">
-                <i className="fa-solid fa-user-plus text-slate-400 group-hover:text-primary dark:group-hover:text-accent text-lg"></i>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-[2px] text-slate-500 dark:text-slate-300 group-hover:text-primary dark:group-hover:text-accent">New Prospect</span>
-          </button>
-
-          <button onClick={handleNewFolder} className="bg-white dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 p-3 rounded-[22px] hover:border-primary/50 dark:hover:border-accent/50 hover:shadow-xl transition-all flex flex-col items-center justify-center gap-2 group text-center min-h-[86px] sm:min-h-24 backdrop-blur-md">
-              <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center group-hover:bg-primary/10 dark:group-hover:bg-accent/10 transition-colors">
-                <i className="fa-brands fa-google-drive text-slate-400 group-hover:text-primary dark:group-hover:text-accent text-lg"></i>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-[2px] text-slate-500 dark:text-slate-300 group-hover:text-primary dark:group-hover:text-accent">Cloud Folder</span>
-          </button>
-
-          <button onClick={handleNotesOpen} className="bg-gradient-to-br from-orange-50 to-white dark:from-white/5 dark:to-white/10 border-2 border-orange-100 dark:border-white/10 p-3 rounded-[22px] hover:border-orange-300 hover:shadow-xl hover:shadow-orange-500/10 transition-all flex flex-col items-center justify-center gap-2 group text-center min-h-[86px] sm:min-h-24 backdrop-blur-md">
-              <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <i className="fa-solid fa-note-sticky text-orange-500 text-lg"></i>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-[2px] text-orange-600/70 dark:text-orange-400">Audit Memo</span>
-          </button>
-
-          {mode === 'realestate' && (
-              <>
-                <button onClick={handleGisSearch} disabled={isGisSearching} className="bg-white dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 p-3 rounded-[22px] hover:border-green-400/50 hover:shadow-xl transition-all flex flex-col items-center justify-center gap-2 group text-center min-h-[86px] sm:min-h-24 backdrop-blur-md">
-                    <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center group-hover:bg-green-100 transition-colors">
-                        {isGisSearching ? <i className="fa-solid fa-spinner fa-spin text-green-500"></i> : <i className="fa-solid fa-map-location-dot text-green-500 text-lg"></i>}
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-[2px] text-slate-500 dark:text-slate-300 group-hover:text-green-600">Tax GIS</span>
-                </button>
-                <button onClick={handleGenerateReport} disabled={isGeneratingReport || !query.trim()} className="bg-white dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 p-3 rounded-[22px] hover:border-purple-400/50 hover:shadow-xl transition-all flex flex-col items-center justify-center gap-2 group text-center min-h-[86px] sm:min-h-24 backdrop-blur-md">
-                    <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-                        {isGeneratingReport ? <i className="fa-solid fa-spinner fa-spin text-purple-500"></i> : <i className="fa-solid fa-wand-magic-sparkles text-purple-500 text-lg"></i>}
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-[2px] text-slate-500 dark:text-slate-300 group-hover:text-purple-600">Risk Intel</span>
-                </button>
-              </>
-          )}
-        </div>
-
-
-        <div className="mt-8 pt-5 border-t border-slate-100 dark:border-white/10">
-            <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-[2px] mb-4 pl-1">Master Carrier Gateway</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-                {DEFAULT_INSURANCE_PORTALS.map(portal => (
-                    <a 
-                        key={portal.id} 
-                        href={portal.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="relative flex flex-col items-center justify-center p-3 rounded-xl border border-transparent hover:shadow-glow transition-all duration-300 group/portal text-center min-h-24 overflow-hidden backdrop-blur-md bg-white/5"
-                        style={{ 
-                            backgroundColor: portal.color ? `${portal.color}1A` : undefined,
-                            borderColor: portal.color ? `${portal.color}33` : undefined
-                        }}
-                    >
-
-                        {/* Hover Background Fill */}
-                        <div 
-                            className="absolute inset-0 opacity-0 group-hover/portal:opacity-100 transition-opacity duration-300"
-                            style={{ backgroundColor: portal.color }}
-                        ></div>
-
-                        {/* Icon / Image Container */}
-                        <div className="relative z-10 mb-3 transition-transform duration-300 group-hover/portal:scale-110 flex items-center justify-center h-12 w-full">
-                            {portal.image ? (
-                                <img 
-                                    src={portal.image} 
-                                    alt={portal.name} 
-                                    className="h-full w-auto object-contain group-hover/portal:brightness-0 group-hover/portal:invert transition-all duration-300" 
-                                />
-                            ) : (
-                                <i 
-                                    className={`${portal.icon} text-2xl transition-colors duration-300 group-hover/portal:text-white`}
-                                    style={{ color: !portal.image ? (portal.color || '#94a3b8') : undefined }}
-                                ></i>
-                            )}
-                        </div>
-
-                        {/* Text */}
-                        <span 
-                            className="relative z-10 text-[9px] font-black uppercase tracking-widest leading-tight transition-colors duration-300 text-slate-600 dark:text-slate-400 group-hover/portal:text-white"
-                        >
-                            {portal.name}
-                        </span>
-                    </a>
-                ))}
+                aria-invalid={Boolean(searchError)} aria-describedby={searchError ? 'search-error' : undefined} />
             </div>
-        </div>
-      </div>
+            <button type="submit" className="finder-submit" aria-label={mode === 'contacts' ? 'Find company contacts' : 'Search ' + currentMode.label} disabled={!query.trim()}>
+              <span>{currentMode.action}</span><i className="fa-solid fa-arrow-right" aria-hidden="true" />
+            </button>
+          </form>
+          {searchError && <p id="search-error" role="alert" className="finder-error">{searchError}</p>}
 
-      <Modal isOpen={isGisModalOpen} onClose={() => setIsGisModalOpen(false)} title="County GIS Architecture">
-          {gisInfo && (
-              <div className="text-center p-4">
-                  <p className="mb-8 text-xl font-medium">GIS mapping identified for <span className="font-black text-[#2080a0] uppercase">{gisInfo.county}</span>.</p>
-                  <a href={gisInfo.url} target="_blank" rel="noopener noreferrer" className="inline-block w-full bg-[#000000] text-white font-black py-5 px-8 rounded-[20px] shadow-2xl hover:bg-[#2080a0] transition-all uppercase tracking-widest text-xs">Access Official Map <i className="fa-solid fa-arrow-up-right-from-square ml-2"></i></a>
-              </div>
-          )}
+          <p className="finder-label" id="finder-destinations-label">Choose where to search</p>
+          <div className="finder-destinations" role="group" aria-labelledby="finder-destinations-label">
+            {modeButtons.map(button => <button key={button.mode} type="button" aria-pressed={mode === button.mode}
+              title={button.label + ' (' + button.shortcut + ')'} onClick={() => { setMode(button.mode); inputRef.current?.focus(); }}
+              className="finder-destination">
+              <span className="finder-destination-icon"><i className={button.icon} aria-hidden="true" /></span>
+              <span className="finder-destination-copy">
+                <span className="finder-destination-title">{button.label}</span>
+                <span className="finder-destination-desc">{button.description}</span>
+              </span>
+              {mode === button.mode
+                ? <span className="finder-selected">Selected</span>
+                : <i className="fa-solid fa-arrow-right finder-destination-arrow" aria-hidden="true" />}
+            </button>)}
+          </div>
+          <p className="finder-note"><i className="fa-solid fa-circle-info" aria-hidden="true" />Your search term stays in place when you switch destinations.</p>
+
+          {mode === 'contacts' && <div className="finder-context"><ContactLookup query={query} onQueryChange={setQuery} addToast={addToast} /></div>}
+          {mode === 'realestate' && <div className="finder-context">
+            <div className="finder-chips">
+              <button type="button" className="finder-chip" onClick={handleFindMyHomeOpen} disabled={!query.trim()}><i className="fa-solid fa-house finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Find My Home</span></button>
+              <button type="button" className="finder-chip finder-chip-primary" aria-label="Home Quote Information" onClick={() => setQuoteOpen(true)} disabled={!query.trim() && !quoteHasDraft} title={quoteHasDraft ? 'Open or resume home quote information' : 'Research this address and collect prospect answers'}><i className="fa-solid fa-clipboard-question finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Home Quote Info{quoteHasDraft && ' (draft)'}</span></button>
+              <button type="button" className="finder-chip" onClick={handleGenerateReport} disabled={!query.trim() || Boolean(busyTask)}><i className="fa-solid fa-file-lines finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Property Report</span></button>
+              <button type="button" className="finder-chip" onClick={handleGisSearch} disabled={!query.trim() || Boolean(busyTask)}><i className="fa-solid fa-map finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">County Map</span></button>
+              <button type="button" className="finder-chip" onClick={() => propertyFileInputRef.current?.click()} disabled={Boolean(busyTask)} title="Attach property evidence (10 MiB total)"><i className="fa-solid fa-paperclip finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Attach</span></button>
+              <input ref={propertyFileInputRef} type="file" multiple className="hidden" aria-label="Property evidence" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif" onChange={handlePropertyFileChange} />
+            </div>
+            {propertyFiles.length > 0 && <ul className="mt-2 space-y-1">
+              {propertyFiles.map((file, index) => <li key={index} className="flex min-w-0 items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><span className="min-w-0 flex-1 truncate">{file.name}</span><button className={buttonClass} disabled={Boolean(busyTask)} aria-label={'Remove ' + file.name} onClick={() => removePropertyFile(index)}><i className="fa-solid fa-xmark" aria-hidden="true" /></button></li>)}
+            </ul>}
+            {!isReportModalOpen && !isGisModalOpen && propertyFeedback}
+          </div>}
+
+          {historyEntries.length > 0 && <div className="finder-recent" aria-label="Recent searches">
+            <span className="finder-recent-title"><i className="fa-regular fa-clock" aria-hidden="true" />Recent searches</span>
+            <div className="finder-recent-chips">
+              {historyEntries.map((entry, index) => <button key={index} type="button" className="finder-chip" onClick={() => runSearch(entry.query, entry.mode || mode)}
+                title={(modeButtons.find(button => button.mode === (entry.mode || mode))?.label || '') + ': ' + entry.query}>
+                <i className="fa-solid fa-magnifying-glass finder-chip-icon" aria-hidden="true" />
+                <span className="finder-chip-label">{entry.query}</span>
+              </button>)}
+            </div>
+            <button type="button" className="finder-clear" onClick={() => setSearchHistory([])} title="Clear search history"><i className="fa-regular fa-trash-can" aria-hidden="true" />Clear</button>
+          </div>}
+        </div>
+
+        <div className="finder-panel">
+          <div className="finder-panel-head">
+            <h3>Favorite companies</h3>
+            <button type="button" className="finder-panel-link" onClick={() => setShowMoreCarriers(prev => !prev)} aria-expanded={showMoreCarriers} aria-controls="more-carriers-panel">
+              More carriers<i className={'fa-solid ' + (showMoreCarriers ? 'fa-chevron-up' : 'fa-chevron-down')} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="finder-chips finder-chips-grid">{DEFAULT_INSURANCE_PORTALS.map(renderPortalChip)}</div>
+          {showMoreCarriers && <div id="more-carriers-panel" className="finder-chips finder-chips-grid finder-chips-more">{MORE_CARRIER_PORTALS.map(renderPortalChip)}</div>}
+        </div>
+
+        <div className="finder-panel finder-panel-row">
+          <h3>Quick tools</h3>
+          <div className="finder-chips">
+            <button type="button" className="finder-chip" onClick={handleNewFolder}><i className="fa-solid fa-cloud finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Cloud Folder</span></button>
+            <button type="button" className="finder-chip" onClick={handleNotesOpen}><i className="fa-solid fa-file-lines finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">{hasDraft ? 'Resume Memo' : 'Audit Memo'}</span></button>
+            <button type="button" className="finder-chip" onClick={() => setVinOpen(true)} title="Decode a VIN with NHTSA public data"><i className="fa-solid fa-car finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Check a VIN</span></button>
+            <button type="button" className="finder-chip" onClick={() => setAutoQuoteOpen(true)} title={autoQuoteHasDraft ? 'Open or resume auto quote information' : 'Collect everything needed to quote an auto policy'}><i className="fa-solid fa-clipboard-list finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Auto Quote Info{autoQuoteHasDraft && ' (draft)'}</span></button>
+            <button type="button" className="finder-chip" onClick={() => setQuoteOpen(true)} title={quoteHasDraft ? 'Open or resume home quote information' : 'Research a property and collect home quote information'}><i className="fa-solid fa-clipboard-question finder-chip-icon" aria-hidden="true" /><span className="finder-chip-label">Home Quote Info{quoteHasDraft && ' (draft)'}</span></button>
+            {[
+              { label: 'Matrix Home', href: 'https://agents.agencymatrix.com/#/', icon: 'fa-house' },
+              { label: 'New Prospect', href: 'https://agents.agencymatrix.com/customerEdit.php?id=0', icon: 'fa-user-plus' },
+              { label: 'Reports', href: 'https://agents.agencymatrix.com/#/reports', icon: 'fa-chart-column' },
+            ].map(link => <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="finder-chip"><i className={'fa-solid ' + link.icon + ' finder-chip-icon'} aria-hidden="true" /><span className="finder-chip-label">{link.label}</span></a>)}
+          </div>
+        </div>
+        {hasDraft && (!isNotesModalOpen || isNotesMinimized) && <p className="finder-status" role="status">Memo draft retained{customerName ? ': ' + customerName : ''}.</p>}
+        {storageError && <p role="alert" className="finder-error">{storageError}</p>}
+      </section>
+
+      <VinLookup isOpen={active && vinOpen} initialVin={looksLikeVin(query) ? query : ''} onClose={() => setVinOpen(false)} addToast={addToast} />
+      <AutoQuoteWorkspace isOpen={active && autoQuoteOpen} prospect={(mode === 'agency' || mode === 'onedrive') && looksLikeProspectName(query) ? query : ''} onClose={() => setAutoQuoteOpen(false)} onDraftChange={setAutoQuoteHasDraft} />
+      <HomeQuoteWorkspace isOpen={active && quoteOpen} address={mode === 'realestate' ? query : ''} onClose={() => setQuoteOpen(false)} onDraftChange={setQuoteHasDraft} />
+      <Modal isOpen={active && isGisModalOpen} onClose={() => { cancelRequest(); setIsGisModalOpen(false); }} title="County Property Map">
+        {isGisSearching && <div role="status" className="flex flex-wrap items-center gap-3 text-sm"><i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />Finding county map...<button className={buttonClass} onClick={() => { cancelRequest(); setPropertyError('County search cancelled.'); }}>Cancel</button></div>}
+        {propertyFeedback}
+        {gisInfo && <div className="space-y-3">
+          <h4 className="font-semibold text-slate-900 dark:text-white">{gisInfo.county}</h4>
+          {gisInfo.note && <p className="text-sm text-slate-600 dark:text-slate-300">{gisInfo.note}</p>}
+          <a href={gisInfo.url} target="_blank" rel="noopener noreferrer" className={primaryClass}>Open County Map<i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></a>
+        </div>}
+      </Modal>
+      <Modal isOpen={active && isReportModalOpen} onClose={() => { cancelRequest(); setIsReportModalOpen(false); }} title={reportSubject || 'Property Risk Report'} maxWidthClass="max-w-5xl">
+        {isGeneratingReport && <div role="status" className="flex flex-wrap items-center gap-3 text-sm"><i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />Building property report...<button className={buttonClass} onClick={() => { cancelRequest(); setPropertyError('Report cancelled.'); }}>Cancel</button></div>}
+        {propertyFeedback}
+        {reportHtml && <>
+          <iframe srcDoc={reportHtml} title="AI Property Report" className="mb-3 h-[min(62vh,650px)] w-full border border-slate-200 bg-white" sandbox="allow-popups allow-popups-to-escape-sandbox" />
+          <div className="flex flex-wrap justify-end gap-2">
+            <button onClick={handleReportDownload} className={buttonClass}><i className="fa-solid fa-download" aria-hidden="true" />Save HTML</button>
+            <button onClick={handleReportPrint} className={buttonClass}><i className="fa-solid fa-print" aria-hidden="true" />Print</button>
+            <button onClick={handleReportEmail} disabled={isCopying} className={primaryClass}><i className="fa-solid fa-envelope" aria-hidden="true" />Copy & Open Gmail</button>
+          </div>
+        </>}
       </Modal>
 
-      <Modal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} title={reportSubject || 'Engineering Risk Intel...'}>
-        {isGeneratingReport && !reportHtml ? (
-            <div className="flex flex-col items-center justify-center h-96 text-text-secondary-light">
-                <div className="relative w-28 h-28 mb-8">
-                    <div className="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-[#2080a0] rounded-full border-t-transparent animate-spin"></div>
-                    <i className="fa-solid fa-home absolute inset-0 flex items-center justify-center text-4xl text-[#2080a0]"></i>
-                </div>
-                <p className="font-black text-2xl text-[#000000] uppercase tracking-tighter">Parsing Property DNA...</p>
-                <p className="text-[10px] mt-3 text-slate-400 uppercase tracking-[0.3em] font-black">Merging Zillow, GIS & FEMA Vectors</p>
-            </div>
-        ) : (
-            <div>
-                <div className="w-full h-[650px] bg-white border border-slate-100 rounded-[32px] overflow-hidden mb-8 shadow-inner">
-                    <iframe srcDoc={reportHtml} title="AI Property Report" className="w-full h-full border-0" sandbox="allow-same-origin" />
-                </div>
-                <div className="flex items-center justify-end gap-4">
-                    <button onClick={handleReportDownload} className="px-6 py-3 text-[10px] font-black uppercase tracking-widest border-2 rounded-2xl hover:bg-gray-50 flex items-center gap-2"><i className="fa-solid fa-download"></i> Save HTML</button>
-                    <button onClick={handleReportPrint} className="px-6 py-3 text-[10px] font-black uppercase tracking-widest border-2 rounded-2xl hover:bg-gray-50 flex items-center gap-2"><i className="fa-solid fa-print"></i> Print</button>
-                    <button onClick={handleReportEmail} className="px-8 py-3 text-xs font-black uppercase tracking-widest bg-[#000000] text-white rounded-2xl shadow-2xl hover:bg-[#2080a0] flex items-center gap-2"><i className="fa-solid fa-paper-plane"></i> Finalize for Gmail</button>
-                </div>
-            </div>
-        )}
+      <Modal isOpen={active && isNotesModalOpen && !isNotesMinimized} onClose={handleNotesClose} title="Audit Memo Draft" maxWidthClass="max-w-2xl">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400" role="status">{draftStatus}</span>
+            <button onClick={handleNotesClose} className={buttonClass} title="Minimize memo" aria-label="Minimize memo"><i className="fa-solid fa-window-minimize" aria-hidden="true" /></button>
+          </div>
+          {storageError && <div role="alert" className="text-sm text-rose-700 dark:text-rose-300">{storageError}<button onClick={persistDraft} className={buttonClass + ' ml-2'}>Retry Save</button></div>}
+          <div>
+            <label htmlFor="memo-customer" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">Customer name</label>
+            <input id="memo-customer" type="text" value={customerName} disabled={notesBusy || isCopying} onChange={event => setCustomerName(event.target.value)} className={fieldClass} />
+          </div>
+          <div>
+            <label htmlFor="memo-notes" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">Interaction notes or email thread</label>
+            <textarea id="memo-notes" value={customerNotes} disabled={notesBusy || isCopying} onChange={event => setCustomerNotes(event.target.value)}
+              rows={8} className={fieldClass + ' resize-y leading-relaxed'} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className={buttonClass} disabled={Boolean(busyTask) || isCopying} onClick={() => notesFileInputRef.current?.click()} title="Attach PDF or image (10 MiB total)"><i className="fa-solid fa-paperclip" aria-hidden="true" />Attach file</button>
+            <input type="file" ref={notesFileInputRef} onChange={handleNotesFileChange} accept=".pdf,.jpg,.jpeg,.png,.webp,.gif" className="hidden" aria-label="Memo attachment" />
+            <button className={primaryClass} onClick={handleOrganizeNotes} disabled={!customerNotes.trim() || Boolean(busyTask) || isCopying}><i className={'fa-solid ' + (isOrganizingNotes ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles')} aria-hidden="true" />Organize notes</button>
+            <button className={buttonClass} disabled={draft.originalText === null || Boolean(busyTask) || isCopying}
+              onClick={() => { setDraft(prev => ({ ...prev, text: prev.originalText ?? prev.text, originalText: null })); setNotesNotice('Original notes restored.'); }}
+              title="Undo AI rewrite" aria-label="Undo AI rewrite"><i className="fa-solid fa-rotate-left" aria-hidden="true" />Undo</button>
+            {notesBusy && <button className={buttonClass} onClick={() => { cancelRequest(); setNotesNotice('AI cancelled. Your original notes are unchanged.'); }}><i className="fa-solid fa-stop" aria-hidden="true" />Cancel AI</button>}
+          </div>
+          {stagedNotesFile && <div className="flex min-w-0 flex-wrap items-center gap-2 border-y border-slate-200 py-2 dark:border-white/10">
+            <span className="min-w-0 flex-1 basis-32 truncate text-xs text-slate-600 dark:text-slate-300" title={stagedNotesFile.name}>{stagedNotesFile.name}</span>
+            <button className={buttonClass} onClick={handleProcessNotesAi} disabled={Boolean(busyTask) || isCopying}><i className={'fa-solid ' + (isProcessingNotesFile ? 'fa-spinner fa-spin' : 'fa-file-lines')} aria-hidden="true" />Extract notes</button>
+            <button className={buttonClass} disabled={Boolean(busyTask) || isCopying} onClick={() => setStagedNotesFile(null)} title="Remove attachment" aria-label="Remove attachment"><i className="fa-solid fa-xmark" aria-hidden="true" /></button>
+            <p className="w-full text-xs text-slate-500">Attachment kept only while this page is open.</p>
+          </div>}
+          {notesError && <div role="alert" className="text-sm text-rose-700 dark:text-rose-300"><p>{notesError}</p>
+            {/session|sign.in|access.*denied/i.test(notesError) && signInLink}
+            {lastNotesTask && <button className={buttonClass + ' mt-2'} disabled={Boolean(busyTask) || isCopying || (lastNotesTask === 'extract-notes' ? !stagedNotesFile : !customerNotes.trim())} onClick={() => void runAiTask(lastNotesTask)}><i className="fa-solid fa-rotate-right" aria-hidden="true" />Retry AI</button>}
+          </div>}
+          {notesNotice && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notesNotice}</p>}
+          <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-white/10">
+            <button onClick={handleNotesSave} disabled={!customerName.trim() || !customerNotes.trim() || Boolean(busyTask) || isCopying} className={primaryClass}><i className={'fa-solid ' + (isCopying ? 'fa-spinner fa-spin' : 'fa-copy')} aria-hidden="true" />Copy Memo & Open Matrix</button>
+            {customerName.trim() && <a href={matrixUrl(customerName)} target="_blank" rel="noopener noreferrer" className={buttonClass}>Open Matrix<i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></a>}
+            <button onClick={handleNotesClose} className={buttonClass}>Keep Draft & Close</button>
+            <button onClick={discardDraft} disabled={isCopying || !hasDraft} className={buttonClass + ' !text-rose-600'}><i className="fa-solid fa-trash-can" aria-hidden="true" />Discard Draft</button>
+          </div>
+        </div>
       </Modal>
-
-      {isNotesModalOpen && !isNotesMinimized && (
-        <Modal isOpen={true} onClose={handleNotesClose} title="Audit-Safe Compliance Memo">
-            <div className="space-y-5">
-                <div className="flex items-center justify-between mb-2">
-                    <button onClick={() => setIsNotesMinimized(true)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#2080a0] transition-colors flex items-center gap-2"><i className="fa-solid fa-window-minimize"></i> Minimize Studio</button>
-                    <span className="text-[9px] font-black uppercase text-white bg-rose-500 px-3 py-1 rounded-full shadow-lg">Retina Audit Active</span>
-                </div>
-                <div className="relative group">
-                    <i className="fa-solid fa-user absolute left-5 top-1/2 -translate-y-1/2 text-[#2080a0] text-sm"></i>
-                    <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Client Primary Key" className="w-full bg-[#f8fafc] dark:bg-bg-dark border-2 border-transparent focus:border-[#2080a0] rounded-2xl py-4 pl-12 pr-4 font-black uppercase text-sm tracking-widest outline-none transition-all shadow-inner" />
-                </div>
-                <div>
-                    <div className="flex items-center justify-between mb-3">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Interaction Source / Context</label>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => notesFileInputRef.current?.click()} 
-                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border-2 rounded-xl flex items-center gap-2 transition-all ${stagedNotesFile ? 'bg-[#2080a0] text-white border-transparent shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-500 hover:border-[#2080a0]'}`}
-                                title="Attach doc twin"
-                            >
-                                <i className={`fa-solid ${stagedNotesFile ? 'fa-file-circle-check' : 'fa-paperclip'}`}></i>
-                                {stagedNotesFile ? 'Source Ready' : 'Stage Doc'}
-                            </button>
-                            <input type="file" ref={notesFileInputRef} onChange={handleNotesFileChange} accept=".pdf,image/jpeg,image/png,image/webp,image/gif" className="hidden" />
-                            
-                            <button onClick={handleOrganizeNotes} disabled={isOrganizingNotes || isProcessingNotesFile} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-[#000000] text-white border-none rounded-xl flex items-center gap-2 hover:bg-[#2080a0] transition-all shadow-lg">
-                                {isOrganizingNotes ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-wand-magic-sparkles"></i>}
-                                Build Audit
-                            </button>
-                        </div>
-                    </div>
-                    
-                    {stagedNotesFile && (
-                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl flex items-center justify-between animate-fade-in">
-                            <div className="flex items-center gap-3">
-                                <i className="fa-solid fa-file-invoice text-[#2080a0] text-lg"></i>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-[#2080a0] truncate max-w-[200px]">{stagedNotesFile.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={handleProcessNotesAi} 
-                                    disabled={isProcessingNotesFile || isOrganizingNotes}
-                                    className="px-4 py-1.5 bg-[#2080a0] text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-[#1a6882] transition-all flex items-center gap-2 shadow-md"
-                                >
-                                    {isProcessingNotesFile ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-shield-halved"></i>}
-                                    Parse DNA
-                                </button>
-                                <button onClick={() => setStagedNotesFile(null)} className="text-slate-400 hover:text-rose-500 px-1 transition-colors"><i className="fa-solid fa-times"></i></button>
-                            </div>
-                        </div>
-                    )}
-
-                    <textarea 
-                        value={customerNotes} 
-                        onChange={(e) => setCustomerNotes(e.target.value)} 
-                        placeholder="Paste email thread or raw action notes..." 
-                        rows={10} 
-                        className="w-full bg-[#f8fafc] dark:bg-bg-dark border-2 border-transparent focus:border-[#2080a0] rounded-[24px] py-5 px-6 font-bold text-sm outline-none transition-all resize-none shadow-inner custom-scrollbar" 
-                    />
-                </div>
-                <div className="flex items-center gap-4 pt-3">
-                    <button onClick={handleNotesSave} className="flex-1 bg-[#000000] text-white font-black py-4 rounded-[20px] shadow-2xl hover:bg-[#2080a0] hover:-translate-y-1 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-xs">
-                        <i className="fa-solid fa-share-from-square"></i>
-                        Execute Sync & Matrix
-                    </button>
-                    <button onClick={handleNotesDiscard} disabled={isOrganizingNotes || isProcessingNotesFile} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest border-2 rounded-[20px] hover:bg-gray-50 transition-colors">Discard</button>
-                </div>
-            </div>
-        </Modal>
-      )}
     </>
   );
 };

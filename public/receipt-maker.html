@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bill Layne Insurance - Receipt Maker</title>
+<style>
+  :root{
+    --blue:#003366;
+    --blue2:#003d7a;
+    --gold:#FFC300;
+    --gray:#f4f6f9;
+    --line:#d8dde5;
+    --text:#1a1a1a;
+    --muted:#5a6270;
+    --green:#2e7d32;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:var(--gray)}
+  .app{max-width:1280px;margin:0 auto;padding:20px}
+  .app-header{background:var(--blue);color:#fff;padding:18px 22px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .app-header h1{margin:0;font-size:20px;letter-spacing:.3px}
+  .app-header p{margin:2px 0 0;font-size:13px;opacity:.9}
+  .app-header img{height:44px;background:#fff;padding:4px 8px;border-radius:6px}
+  .grid{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:20px;margin-top:20px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .panel h2{margin:0 0 12px;font-size:15px;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+  .field input,.field select,.field textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit;background:#fff}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue2);box-shadow:0 0 0 3px rgba(0,61,122,.12)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .btn{flex:1;min-width:120px;padding:11px 14px;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.3px}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:var(--blue2)}
+  .btn-gold{background:var(--gold);color:var(--blue)}
+  .btn-gold:hover{background:#ffb700}
+  .btn-ghost{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+  .btn-ghost:hover{background:#eef3fa}
+  .preview-wrap{background:#e9ecf1;padding:20px;border-radius:10px;border:1px solid var(--line);overflow:auto}
+  .receipt{
+    width:8.5in;min-height:5.5in;margin:0 auto;background:#fff;
+    padding:.5in;font-family:Arial,Helvetica,sans-serif;color:#000;
+    box-shadow:0 4px 12px rgba(0,0,0,.15);position:relative;
+  }
+  .r-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:4px solid #000;padding-bottom:14px;margin-bottom:16px}
+  .r-agency{flex:1}
+  .r-agency img{height:55px;margin-bottom:6px;filter:grayscale(100%) contrast(1.2)}
+  .r-agency .name{font-size:16px;font-weight:800;color:#000;margin-bottom:2px;letter-spacing:.3px}
+  .r-agency .info{font-size:10.5pt;color:#000;line-height:1.4}
+  .r-title{text-align:right;flex-shrink:0;margin-left:20px}
+  .r-title .label{font-size:24pt;font-weight:900;color:#000;letter-spacing:3px;line-height:1;border:3px solid #000;padding:4px 14px;display:inline-block}
+  .r-title .sub{font-size:10pt;color:#000;margin-top:6px;font-weight:600}
+  .r-meta{display:grid;grid-template-columns:1fr 1fr;gap:0;border:2px solid #000;margin-bottom:16px;font-size:10.5pt}
+  .r-meta > div{padding:10px 14px;border-right:1px solid #000}
+  .r-meta > div:last-child{border-right:none}
+  .r-meta .k{font-size:9pt;color:#000;text-transform:uppercase;font-weight:700;letter-spacing:.5px;margin-bottom:2px}
+  .r-meta .v{font-size:12pt;color:#000;font-weight:800}
+  .r-section{margin-bottom:14px}
+  .r-section-title{font-size:10pt;font-weight:800;text-transform:uppercase;color:#000;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;letter-spacing:1px}
+  .r-line{font-size:10.5pt;line-height:1.5;color:#000}
+  .r-line b{color:#000;font-weight:800}
+  .r-amount-box{background:#000;color:#fff;padding:18px 22px;border:3px solid #000;display:flex;justify-content:space-between;align-items:center;margin:16px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .r-amount-box .lbl{font-size:11pt;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;color:#fff}
+  .r-amount-box .amt{font-size:28pt;font-weight:900;font-family:Georgia,serif;color:#fff}
+  .r-amount-box .words{font-size:9pt;font-style:italic;color:#fff;margin-top:4px;opacity:.95}
+  .r-policy-table{width:100%;border-collapse:collapse;font-size:10.5pt;margin-top:6px;border:2px solid #000}
+  .r-policy-table th{background:#000;color:#fff;text-align:left;padding:8px 10px;font-size:9.5pt;text-transform:uppercase;border:1px solid #000;font-weight:700;letter-spacing:.3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .r-policy-table td{padding:8px 10px;border:1px solid #000;color:#000}
+  .r-notes{background:#fff;border:2px solid #000;border-left:6px solid #000;padding:10px 14px;font-size:10pt;color:#000;margin-top:10px}
+  .r-notes b{font-weight:800;text-transform:uppercase;font-size:9.5pt;letter-spacing:.5px}
+  .r-footer{margin-top:22px;padding-top:12px;border-top:3px double #000;display:flex;justify-content:space-between;align-items:flex-end;font-size:9pt;color:#000}
+  .r-sig{text-align:right}
+  .r-sig .line{border-top:1px solid #000;width:240px;margin-bottom:4px}
+  .r-sig .sig-label{font-size:8.5pt;color:#000;font-weight:600}
+  .r-thank{text-align:center;font-size:11pt;font-weight:800;color:#000;margin-top:12px;letter-spacing:2px;border-top:1px solid #000;border-bottom:1px solid #000;padding:6px 0}
+  .carrier-logo{max-height:40px;max-width:140px;object-fit:contain;filter:grayscale(100%) contrast(1.3)}
+  @media print{
+    @page{size:letter;margin:.4in}
+    body{background:#fff}
+    .app-header,#formPanel{display:none!important}
+    .app{max-width:none;padding:0;margin:0}
+    .grid{display:block!important}
+    .preview-wrap{background:#fff!important;padding:0!important;border:none!important;box-shadow:none!important}
+    .receipt{box-shadow:none!important;width:auto!important;min-height:auto!important;padding:0!important;margin:0!important}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="app-header">
+    <div>
+      <h1>&#128196; Universal Receipt Maker</h1>
+      <p>Bill Layne Insurance Agency - Fill in fields, preview live, print or save as PDF</p>
+    </div>
+    <img src="https://i.imgur.com/lxu9nfT.png" alt="Bill Layne Insurance">
+  </div>
+
+  <div class="grid">
+    <div class="panel" id="formPanel">
+      <h2>Receipt Details</h2>
+
+      <div class="field">
+        <label>Carrier / Company Logo</label>
+        <select id="carrier">
+          <option value="">- None (Bill Layne only) -</option>
+          <option value="https://i.imgur.com/Mv5V7tV.png">Nationwide</option>
+          <option value="https://i.imgur.com/K6kTnTa.png">Progressive</option>
+          <option value="https://i.imgur.com/9ZWQsAS.png">National General</option>
+          <option value="https://imgur.com/CNFRCZc.png">Alamance Farmers</option>
+          <option value="https://i.imgur.com/m6wsO1p.png">Travelers</option>
+          <option value="https://i.imgur.com/rHIo4r5.jpg">Foremost</option>
+          <option value="OTHER">Other (type name below)</option>
+        </select>
+      </div>
+
+      <div class="field" id="otherCarrierWrap" style="display:none">
+        <label>Other Company Name</label>
+        <input type="text" id="otherCarrier" placeholder="e.g., NC Grange Mutual, Dairyland, Safeco">
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Receipt #</label>
+          <input type="text" id="receiptNum" placeholder="R-0001">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="receiptDate">
+        </div>
+      </div>
+
+      <h2 style="margin-top:16px">Received From</h2>
+      <div class="field">
+        <label>Customer Name</label>
+        <input type="text" id="custName" placeholder="John & Jane Doe">
+      </div>
+      <div class="field">
+        <label>Street Address</label>
+        <input type="text" id="custAddr" placeholder="123 Main Street">
+      </div>
+      <div class="row3">
+        <div class="field">
+          <label>City</label>
+          <input type="text" id="custCity" placeholder="Elkin">
+        </div>
+        <div class="field">
+          <label>State</label>
+          <input type="text" id="custState" value="NC">
+        </div>
+        <div class="field">
+          <label>ZIP</label>
+          <input type="text" id="custZip" placeholder="28621">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Phone</label>
+          <input type="text" id="custPhone" placeholder="336-555-1234">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="text" id="custEmail" placeholder="name@email.com">
+        </div>
+      </div>
+
+      <h2 style="margin-top:16px">Payment</h2>
+      <div class="row2">
+        <div class="field">
+          <label>Amount ($)</label>
+          <input type="number" id="amount" step="0.01" placeholder="0.00">
+        </div>
+        <div class="field">
+          <label>Payment Method</label>
+          <select id="method">
+            <option>Cash</option>
+            <option>Check</option>
+            <option>Credit Card</option>
+            <option>Debit Card</option>
+            <option>Money Order</option>
+            <option>ACH / Bank Draft</option>
+            <option>Online Payment</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Check / Reference #</label>
+          <input type="text" id="checkNum" placeholder="Check #, Auth #, etc.">
+        </div>
+        <div class="field">
+          <label>Payable To</label>
+          <select id="payableTo">
+            <option>Bill Layne Insurance Agency</option>
+            <option>Nationwide</option>
+            <option>Progressive</option>
+            <option>National General</option>
+            <option>Alamance Farmers</option>
+            <option>Travelers</option>
+            <option>Foremost</option>
+            <option>NC Grange Mutual</option>
+            <option>Dairyland</option>
+            <option>Safeco</option>
+            <option>NCJUA</option>
+          </select>
+        </div>
+      </div>
+
+      <h2 style="margin-top:16px">Policy Information</h2>
+      <div class="row2">
+        <div class="field">
+          <label>Policy Type</label>
+          <select id="polType">
+            <option>Auto</option>
+            <option>Homeowners</option>
+            <option>Mobile Home</option>
+            <option>Dwelling Fire</option>
+            <option>Commercial</option>
+            <option>Motorcycle</option>
+            <option>Boat</option>
+            <option>Umbrella</option>
+            <option>Flood</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Policy Number</label>
+          <input type="text" id="polNum" placeholder="POL123456789">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Policy Period From</label>
+          <input type="date" id="polFrom">
+        </div>
+        <div class="field">
+          <label>Policy Period To</label>
+          <input type="date" id="polTo">
+        </div>
+      </div>
+      <div class="field">
+        <label>Description / Purpose of Payment</label>
+        <textarea id="desc" rows="2" placeholder="e.g., Down payment on new auto policy, Renewal premium, etc."></textarea>
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <textarea id="notes" rows="2" placeholder="Any extra info to appear on the receipt"></textarea>
+      </div>
+
+      <div class="btns">
+        <button class="btn btn-primary" onclick="updatePreview()">&#128260; Update Preview</button>
+        <button class="btn btn-gold" onclick="window.print()">&#128438;&#65039; Print / Save PDF</button>
+      </div>
+      <div class="btns">
+        <button class="btn btn-ghost" onclick="clearForm()">&#128465;&#65039; Clear Form</button>
+        <button class="btn btn-ghost" onclick="loadSample()">&#128203; Load Sample</button>
+      </div>
+    </div>
+
+    <div class="preview-wrap" id="previewOnly">
+      <div class="receipt" id="receipt">
+        <div class="r-top">
+          <div class="r-agency">
+            <img src="https://i.imgur.com/lxu9nfT.png" alt="Bill Layne Insurance">
+            <div class="name">BILL LAYNE INSURANCE AGENCY</div>
+            <div class="info">
+              1283 N Bridge St &bull; PO Box 827<br>
+              Elkin, NC 28621<br>
+              336-835-1993 &bull; Save@BillLayneInsurance.com<br>
+              www.BillLayneInsurance.com
+            </div>
+          </div>
+          <div class="r-title">
+            <div class="label">RECEIPT</div>
+            <div class="sub">Official Payment Confirmation</div>
+            <img id="carrierImg" class="carrier-logo" style="display:none;margin-top:8px" alt="">
+            <div id="carrierText" style="display:none;margin-top:8px;font-size:12pt;font-weight:800;color:#000;letter-spacing:.5px;border:2px solid #000;padding:4px 10px"></div>
+          </div>
+        </div>
+
+        <div class="r-meta">
+          <div>
+            <div class="k">Receipt #</div>
+            <div class="v" id="pReceiptNum">R-0001</div>
+          </div>
+          <div>
+            <div class="k">Date</div>
+            <div class="v" id="pDate">-</div>
+          </div>
+          <div style="grid-column:1 / -1;border-right:none;border-top:1px solid #000">
+            <div class="k">Created</div>
+            <div class="v" id="pCreated" style="font-size:10.5pt">-</div>
+          </div>
+        </div>
+
+        <div class="r-section">
+          <div class="r-section-title">Received From</div>
+          <div class="r-line">
+            <b id="pCustName">Customer Name</b><br>
+            <span id="pCustAddr"></span><br>
+            <span id="pCustCSZ"></span><br>
+            <span id="pCustContact"></span>
+          </div>
+        </div>
+
+        <div class="r-amount-box">
+          <div>
+            <div class="lbl">Amount Received</div>
+            <div class="words" id="pAmountWords">Zero dollars</div>
+          </div>
+          <div class="amt" id="pAmount">$0.00</div>
+        </div>
+
+        <div class="r-section">
+          <div class="r-section-title">Payment Details</div>
+          <table class="r-policy-table">
+            <tr><th style="width:35%">Payment Method</th><td id="pMethod">-</td></tr>
+            <tr><th>Reference / Check #</th><td id="pCheck">-</td></tr>
+            <tr><th>Payable To</th><td id="pPayable">Bill Layne Insurance Agency</td></tr>
+          </table>
+        </div>
+
+        <div class="r-section">
+          <div class="r-section-title">Policy Information</div>
+          <table class="r-policy-table">
+            <tr><th style="width:35%">Policy Type</th><td id="pPolType">-</td></tr>
+            <tr><th>Policy Number</th><td id="pPolNum">-</td></tr>
+            <tr><th>Policy Period</th><td id="pPolPeriod">-</td></tr>
+            <tr><th>Description</th><td id="pDesc">-</td></tr>
+          </table>
+        </div>
+
+        <div class="r-notes" id="pNotesBox" style="display:none">
+          <b>Notes:</b> <span id="pNotes"></span>
+        </div>
+
+        <div class="r-footer">
+          <div>
+            Thank you for your business!<br>
+            Keep this receipt for your records.
+          </div>
+          <div class="r-sig">
+            <div class="line"></div>
+            <div class="sig-label">Authorized Signature - Bill Layne Insurance Agency</div>
+          </div>
+        </div>
+
+        <div class="r-thank">&#9733; BILL LAYNE INSURANCE - PROTECTING WHAT MATTERS MOST &#9733;</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function stampNow(){
+    const now = new Date();
+    const opts = {weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true};
+    document.getElementById('pCreated').textContent = now.toLocaleString('en-US',opts);
+  }
+  stampNow();
+  window.addEventListener('beforeprint', stampNow);
+
+  document.getElementById('receiptDate').valueAsDate = new Date();
+
+  function fmtDate(iso){
+    if(!iso) return '-';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+  }
+
+  function fmtMoney(n){
+    const v = parseFloat(n||0);
+    return '$' + v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+
+  function numToWords(num){
+    if(isNaN(num)) return '';
+    const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    function inWords(n){
+      if(n<20) return a[n];
+      if(n<100) return b[Math.floor(n/10)] + (n%10?' '+a[n%10]:'');
+      if(n<1000) return a[Math.floor(n/100)] + ' Hundred' + (n%100?' '+inWords(n%100):'');
+      if(n<1000000) return inWords(Math.floor(n/1000)) + ' Thousand' + (n%1000?' '+inWords(n%1000):'');
+      return inWords(Math.floor(n/1000000)) + ' Million' + (n%1000000?' '+inWords(n%1000000):'');
+    }
+    const dollars = Math.floor(num);
+    const cents = Math.round((num-dollars)*100);
+    let text = dollars===0 ? 'Zero' : inWords(dollars);
+    text += ' Dollar' + (dollars===1?'':'s');
+    if(cents>0) text += ' and ' + cents + '/100';
+    return text;
+  }
+
+  function updatePreview(){
+    const g = id => document.getElementById(id).value.trim();
+
+    const carrier = g('carrier');
+    const cImg = document.getElementById('carrierImg');
+    const cText = document.getElementById('carrierText');
+    const otherWrap = document.getElementById('otherCarrierWrap');
+    if(carrier === 'OTHER'){
+      otherWrap.style.display = 'block';
+      cImg.style.display = 'none';
+      const otherName = g('otherCarrier');
+      if(otherName){ cText.textContent = otherName.toUpperCase(); cText.style.display='block'; }
+      else cText.style.display='none';
+    } else if(carrier){
+      otherWrap.style.display = 'none';
+      cImg.src = carrier;
+      cImg.style.display = 'inline-block';
+      cText.style.display = 'none';
+    } else {
+      otherWrap.style.display = 'none';
+      cImg.style.display = 'none';
+      cText.style.display = 'none';
+    }
+
+    document.getElementById('pReceiptNum').textContent = g('receiptNum') || 'R-0001';
+    document.getElementById('pDate').textContent = fmtDate(g('receiptDate'));
+
+    document.getElementById('pCustName').textContent = g('custName') || 'Customer Name';
+    document.getElementById('pCustAddr').textContent = g('custAddr') || '';
+    document.getElementById('pCustCSZ').textContent = [g('custCity'), g('custState'), g('custZip')].filter(Boolean).join(' ').trim();
+    const contact = [g('custPhone'), g('custEmail')].filter(Boolean).join(' • ');
+    document.getElementById('pCustContact').textContent = contact;
+
+    const amt = parseFloat(g('amount')||0);
+    document.getElementById('pAmount').textContent = fmtMoney(amt);
+    document.getElementById('pAmountWords').textContent = numToWords(amt);
+
+    document.getElementById('pMethod').textContent = g('method') || '-';
+    document.getElementById('pCheck').textContent = g('checkNum') || '-';
+    document.getElementById('pPayable').textContent = g('payableTo') || 'Bill Layne Insurance Agency';
+
+    document.getElementById('pPolType').textContent = g('polType') || '-';
+    document.getElementById('pPolNum').textContent = g('polNum') || '-';
+    const pf = g('polFrom'), pt = g('polTo');
+    document.getElementById('pPolPeriod').textContent = (pf||pt) ? (fmtDate(pf) + ' - ' + fmtDate(pt)) : '-';
+    document.getElementById('pDesc').textContent = g('desc') || '-';
+
+    const notes = g('notes');
+    const nBox = document.getElementById('pNotesBox');
+    if(notes){ document.getElementById('pNotes').textContent = notes; nBox.style.display='block'; }
+    else nBox.style.display='none';
+  }
+
+  function clearForm(){
+    document.querySelectorAll('#formPanel input, #formPanel textarea').forEach(el => el.value='');
+    document.getElementById('carrier').selectedIndex = 0;
+    document.getElementById('method').selectedIndex = 0;
+    document.getElementById('payableTo').selectedIndex = 0;
+    document.getElementById('polType').selectedIndex = 0;
+    document.getElementById('custState').value = 'NC';
+    document.getElementById('receiptDate').valueAsDate = new Date();
+    updatePreview();
+  }
+
+  function loadSample(){
+    document.getElementById('carrier').value = 'https://i.imgur.com/Mv5V7tV.png';
+    document.getElementById('receiptNum').value = 'R-2026-0042';
+    document.getElementById('receiptDate').valueAsDate = new Date();
+    document.getElementById('custName').value = 'John & Jane Doe';
+    document.getElementById('custAddr').value = '123 Main Street';
+    document.getElementById('custCity').value = 'Elkin';
+    document.getElementById('custState').value = 'NC';
+    document.getElementById('custZip').value = '28621';
+    document.getElementById('custPhone').value = '336-555-1234';
+    document.getElementById('custEmail').value = 'jdoe@email.com';
+    document.getElementById('amount').value = '487.50';
+    document.getElementById('method').value = 'Check';
+    document.getElementById('checkNum').value = 'Check #2847';
+    document.getElementById('payableTo').value = 'Nationwide';
+    document.getElementById('polType').value = 'Homeowners';
+    document.getElementById('polNum').value = 'HO-9876543210';
+    document.getElementById('polFrom').value = '2026-05-01';
+    document.getElementById('polTo').value = '2027-05-01';
+    document.getElementById('desc').value = 'Homeowners policy premium - annual payment in full';
+    document.getElementById('notes').value = 'Paid in full. Policy documents will be mailed within 7-10 business days.';
+    updatePreview();
+  }
+
+  document.querySelectorAll('#formPanel input, #formPanel select, #formPanel textarea').forEach(el => {
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('change', updatePreview);
+  });
+
+  updatePreview();
+</script>
+</body>
+</html>

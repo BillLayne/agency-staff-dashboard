@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bill Layne Insurance - HTML Studio</title>
+  <style>
+    :root {
+      --navy: #003f87;
+      --navy-deep: #0f172a;
+      --blue: #0076d3;
+      --gold: #c8a84e;
+      --mint: #0f766e;
+      --line: #d7e0eb;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-strong: #ffffff;
+      --canvas: #eef4fb;
+      --text: #102033;
+      --muted: #5f7289;
+      --editor: #0b1322;
+      --editor-text: #dbeafe;
+      --shadow: 0 28px 70px -42px rgba(15, 23, 42, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(0, 118, 211, 0.12), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.10), transparent 25%),
+        linear-gradient(180deg, #f5f8fc 0%, #edf3fa 100%);
+    }
+
+    .app {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(0, 63, 135, 0.92));
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 28px;
+      padding: 24px 26px;
+      color: #fff;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: rgba(255,255,255,0.8);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 760px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.7);
+      backdrop-filter: blur(18px);
+      border-radius: 22px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+    }
+
+    .stat-value {
+      margin-top: 10px;
+      color: var(--navy);
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(360px, 500px) minmax(0, 1fr);
+      gap: 20px;
+      margin-top: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.7);
+      backdrop-filter: blur(18px);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-header {
+      padding: 20px 22px 0;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: var(--navy-deep);
+    }
+
+    .panel-subtitle {
+      margin: 7px 0 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .panel-body {
+      padding: 20px 22px 22px;
+    }
+
+    .section-label {
+      margin: 0 0 12px;
+      padding-left: 12px;
+      border-left: 4px solid var(--navy);
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .input, .textarea, .select {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.88);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font: inherit;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .input:focus, .textarea:focus, .select:focus {
+      border-color: rgba(0,63,135,0.6);
+      box-shadow: 0 0 0 4px rgba(0,118,211,0.08);
+    }
+
+    .textarea {
+      min-height: 520px;
+      resize: vertical;
+      background: var(--editor);
+      color: var(--editor-text);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre;
+      overflow: auto;
+    }
+
+    .controls-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .template-btn,
+    .action-btn,
+    .device-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.92);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      font: inherit;
+    }
+
+    .template-btn:hover,
+    .action-btn:hover,
+    .device-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(0,63,135,0.34);
+      box-shadow: 0 14px 30px -24px rgba(15,23,42,0.38);
+    }
+
+    .template-btn {
+      text-align: left;
+      padding: 14px;
+    }
+
+    .template-btn strong {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--navy);
+      margin-bottom: 5px;
+    }
+
+    .template-btn span {
+      display: block;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .action-btn {
+      padding: 14px 12px;
+      text-align: center;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 900;
+    }
+
+    .action-btn.primary {
+      border-color: rgba(0,63,135,0.28);
+      color: white;
+      background: linear-gradient(135deg, var(--navy), var(--blue));
+      box-shadow: 0 20px 38px -26px rgba(0,63,135,0.6);
+    }
+
+    .preview-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 820px;
+    }
+
+    .preview-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px 22px 0;
+    }
+
+    .device-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .device-btn {
+      padding: 10px 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 900;
+      color: var(--muted);
+    }
+
+    .device-btn.active {
+      color: white;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--navy), var(--mint));
+    }
+
+    .device-btn.editing {
+      color: var(--navy-deep);
+      border-color: rgba(200, 168, 78, 0.6);
+      background: linear-gradient(135deg, rgba(200,168,78,0.28), rgba(255,255,255,0.94));
+      box-shadow: 0 18px 34px -28px rgba(200, 168, 78, 0.7);
+    }
+
+    .preview-canvas {
+      margin: 20px 22px 22px;
+      flex: 1;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #dde6f2, #eaf0f7);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .preview-frame-wrap {
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 32px 60px -42px rgba(15,23,42,0.5);
+      transition: width 0.2s ease;
+      border: 1px solid rgba(15,23,42,0.08);
+    }
+
+    .preview-frame-wrap.full { width: 100%; }
+    .preview-frame-wrap.desktop { width: 100%; max-width: 1200px; }
+    .preview-frame-wrap.tablet { width: 820px; max-width: 100%; }
+    .preview-frame-wrap.mobile { width: 390px; max-width: 100%; }
+
+    .preview-frame {
+      width: 100%;
+      min-height: 980px;
+      border: 0;
+      background: white;
+    }
+
+    .small-note {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .hidden-input {
+      display: none;
+    }
+
+    .status {
+      margin-top: 14px;
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(0, 118, 211, 0.08);
+      border: 1px solid rgba(0, 118, 211, 0.16);
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1100px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+      .textarea {
+        min-height: 420px;
+      }
+      .preview-shell {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app { padding: 14px; }
+      .hero { padding: 18px; border-radius: 22px; }
+      .hero h1 { font-size: 24px; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .row-2,
+      .template-grid,
+      .action-grid { grid-template-columns: 1fr; }
+      .preview-canvas { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <div>
+        <div class="pill">Ultimate HTML Studio</div>
+        <h1>Paste HTML. See it live. Ship faster.</h1>
+        <p>
+          A standalone preview studio for HTML from AI, emails, landing pages, receipts, quote docs, and quick experiments.
+          Paste source, switch device widths, import files, open a clean preview tab, print, copy, or download in seconds.
+        </p>
+      </div>
+      <div class="pill">Bill Layne Insurance Tools</div>
+    </section>
+
+    <section class="stats">
+      <div class="stat">
+        <div class="stat-label">Lines</div>
+        <div class="stat-value" id="statLines">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Tags</div>
+        <div class="stat-value" id="statTags">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Size</div>
+        <div class="stat-value" id="statSize">0 KB</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Mode</div>
+        <div class="stat-value" id="statMode">Live</div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Source Workspace</h2>
+          <p class="panel-subtitle">Paste full documents or fragments. The studio wraps fragments in a clean preview shell automatically.</p>
+        </div>
+        <div class="panel-body">
+          <div class="controls-grid">
+            <div>
+              <p class="section-label">Document Settings</p>
+              <div class="row-2">
+                <input id="subjectInput" class="input" type="text" placeholder="Document title or subject">
+                <select id="wrapMode" class="select">
+                  <option value="auto">Auto-detect full HTML</option>
+                  <option value="fragment">Treat as fragment</option>
+                  <option value="document">Treat as full document</option>
+                  <option value="email-safe">Email-safe shell</option>
+                </select>
+              </div>
+              <div style="margin-top:12px;">
+                <input id="recipientInput" class="input" type="email" placeholder="Optional Gmail recipient">
+              </div>
+              <div class="small-note">
+                `Auto-detect` works best for most pasted AI output. Use `Email-safe shell` when you want a cleaner Gmail preview and Gmail sync target.
+              </div>
+            </div>
+
+            <div>
+              <p class="section-label">Quick Starters</p>
+              <div class="template-grid">
+                <button class="template-btn" data-template="blank">
+                  <strong>Blank Canvas</strong>
+                  <span>Start clean with an empty, branded shell.</span>
+                </button>
+                <button class="template-btn" data-template="email">
+                  <strong>Email Shell</strong>
+                  <span>Responsive starter for Gmail-safe email tests.</span>
+                </button>
+                <button class="template-btn" data-template="landing">
+                  <strong>Landing Block</strong>
+                  <span>Simple hero and content section for quick page ideas.</span>
+                </button>
+                <button class="template-btn" data-template="quote">
+                  <strong>Quote Card</strong>
+                  <span>Insurance-style summary card with CTA and coverage rows.</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p class="section-label">HTML Source</p>
+              <textarea id="htmlInput" class="textarea" spellcheck="false" placeholder="Paste HTML here..."></textarea>
+              <div class="status" id="statusBox">Ready to preview HTML. Paste code or load a file.</div>
+            </div>
+
+            <div>
+              <p class="section-label">Actions</p>
+              <div class="action-grid">
+                <button id="gmailBtn" class="action-btn primary">Sync to Gmail</button>
+                <button id="copyBtn" class="action-btn primary">Copy Source</button>
+                <button id="downloadBtn" class="action-btn">Download HTML</button>
+                <button id="printBtn" class="action-btn">Print Preview</button>
+                <button id="newTabBtn" class="action-btn">Open Preview Tab</button>
+                <button id="formatBtn" class="action-btn">Format Source</button>
+              </div>
+              <div class="action-grid" style="margin-top:10px;">
+                <button id="loadFileBtn" class="action-btn">Import HTML File</button>
+                <button id="sampleBtn" class="action-btn">Load Sample</button>
+                <button id="toggleWrapBtn" class="action-btn">Toggle Wrap</button>
+                <button id="clearBtn" class="action-btn">Clear Studio</button>
+              </div>
+              <input id="fileInput" class="hidden-input" type="file" accept=".html,.htm,text/html">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel preview-shell">
+        <div class="preview-toolbar">
+          <div>
+            <h2 class="panel-title" style="margin:0;">Live Preview</h2>
+            <p class="panel-subtitle" style="margin-top:6px;">Switch widths to inspect how pasted HTML behaves before you send, print, or share it.</p>
+          </div>
+          <div class="device-group">
+            <button class="device-btn active" data-device="desktop">Desktop</button>
+            <button class="device-btn" data-device="tablet">Tablet</button>
+            <button class="device-btn" data-device="mobile">Mobile</button>
+            <button class="device-btn" data-device="full">Full Width</button>
+            <button class="device-btn" id="editPreviewBtn" type="button">Edit Preview</button>
+          </div>
+        </div>
+        <div class="preview-canvas">
+          <div id="previewWrap" class="preview-frame-wrap desktop">
+            <iframe id="previewFrame" class="preview-frame" sandbox="allow-same-origin allow-scripts"></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEYS = {
+      html: 'standaloneHtmlStudioCode',
+      subject: 'standaloneHtmlStudioSubject',
+      wrapMode: 'standaloneHtmlStudioWrapMode',
+      device: 'standaloneHtmlStudioDevice',
+      recipient: 'standaloneHtmlStudioRecipient',
+    };
+
+    const SAMPLE_HTML = `<section style="font-family:Inter,Arial,sans-serif;padding:40px;background:#f8fafc;color:#0f172a;">
+  <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #dbe4ef;border-radius:18px;overflow:hidden;">
+    <div style="padding:12px 24px;background:linear-gradient(90deg,#003f87,#0f766e);color:#ffffff;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;">
+      Quote Preview
+    </div>
+    <div style="padding:32px 28px;">
+      <h1 style="margin:0 0 10px;font-size:30px;line-height:1.05;">Your HTML preview is working</h1>
+      <p style="margin:0 0 18px;color:#5f7289;line-height:1.65;">
+        Paste email code, landing pages, quote templates, or AI-generated fragments here and inspect them before using them.
+      </p>
+      <table role="presentation" width="100%" style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:14px 0;border-top:1px solid #e2e8f0;"><strong>Home Type</strong></td>
+          <td style="padding:14px 0;border-top:1px solid #e2e8f0;text-align:right;">Owner Occupied</td>
+        </tr>
+        <tr>
+          <td style="padding:14px 0;border-top:1px solid #e2e8f0;"><strong>Construction</strong></td>
+          <td style="padding:14px 0;border-top:1px solid #e2e8f0;text-align:right;">Frame</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</section>`;
+
+    const TEMPLATES = {
+      blank: '',
+      email: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Preview</title>
+  <style>
+    body { margin:0; padding:0; background:#f8fafc; font-family:Inter,Arial,sans-serif; }
+    @media screen and (max-width:600px){ .container{ width:100% !important; max-width:100% !important; } .stack{ display:block !important; width:100% !important; } }
+  </style>
+</head>
+<body>
+  <table role="presentation" width="100%" style="width:100%; background:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:20px 10px;">
+        <table role="presentation" width="600" class="container" style="width:600px; max-width:600px; background:#ffffff;">
+          <tr><td style="padding:24px;">Paste or build your email here.</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+      landing: `<section style="min-height:100vh;padding:72px 24px;background:linear-gradient(180deg,#0f172a,#003f87);color:#ffffff;font-family:Inter,Arial,sans-serif;">
+  <div style="max-width:900px;margin:0 auto;">
+    <p style="margin:0 0 10px;font-size:11px;font-weight:800;letter-spacing:0.26em;text-transform:uppercase;color:#c8a84e;">Landing Page</p>
+    <h1 style="margin:0 0 14px;font-size:56px;line-height:1;font-weight:900;">Build a quick visual prototype.</h1>
+    <p style="max-width:660px;margin:0;font-size:18px;line-height:1.7;color:rgba(255,255,255,0.82);">Use this starter for hero sections, lead forms, or page layout tests before handing the HTML somewhere else.</p>
+  </div>
+</section>`,
+      quote: `<div style="padding:32px;background:#eef4fb;font-family:Inter,Arial,sans-serif;">
+  <div style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #d9e2ec;border-radius:20px;overflow:hidden;">
+    <div style="padding:14px 24px;background:linear-gradient(135deg,#003f87,#0f766e);color:#ffffff;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;font-size:11px;">Auto Quote</div>
+    <div style="padding:28px;">
+      <h2 style="margin:0 0 10px;font-size:36px;line-height:1.1;color:#0f172a;">$191/mo estimated</h2>
+      <p style="margin:0 0 18px;color:#5f7289;line-height:1.6;">Replace this with your AI-generated quote HTML and inspect spacing, tables, and responsiveness.</p>
+      <table role="presentation" width="100%" style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:12px 0;border-top:1px solid #e2e8f0;"><strong>Bodily Injury</strong></td><td style="padding:12px 0;border-top:1px solid #e2e8f0;text-align:right;">50/100</td></tr>
+        <tr><td style="padding:12px 0;border-top:1px solid #e2e8f0;"><strong>Collision</strong></td><td style="padding:12px 0;border-top:1px solid #e2e8f0;text-align:right;">$500 Ded</td></tr>
+      </table>
+    </div>
+  </div>
+</div>`
+    };
+
+    const subjectInput = document.getElementById('subjectInput');
+    const wrapMode = document.getElementById('wrapMode');
+    const recipientInput = document.getElementById('recipientInput');
+    const htmlInput = document.getElementById('htmlInput');
+    const previewFrame = document.getElementById('previewFrame');
+    const previewWrap = document.getElementById('previewWrap');
+    const statusBox = document.getElementById('statusBox');
+    const fileInput = document.getElementById('fileInput');
+    const editPreviewBtn = document.getElementById('editPreviewBtn');
+    const deviceButtons = Array.from(document.querySelectorAll('.device-btn'));
+    let previewEditMode = false;
+    let isApplyingSourceUpdate = false;
+    let previewSyncTimeout = null;
+
+    function setStatus(message) {
+      statusBox.textContent = message;
+    }
+
+    function loadStoredState() {
+      subjectInput.value = localStorage.getItem(STORAGE_KEYS.subject) || 'HTML Preview';
+      wrapMode.value = localStorage.getItem(STORAGE_KEYS.wrapMode) || 'auto';
+      recipientInput.value = localStorage.getItem(STORAGE_KEYS.recipient) || '';
+      htmlInput.value = localStorage.getItem(STORAGE_KEYS.html) || '';
+      const storedDevice = localStorage.getItem(STORAGE_KEYS.device) || 'desktop';
+      setDeviceMode(storedDevice);
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEYS.subject, subjectInput.value);
+      localStorage.setItem(STORAGE_KEYS.wrapMode, wrapMode.value);
+      localStorage.setItem(STORAGE_KEYS.recipient, recipientInput.value);
+      localStorage.setItem(STORAGE_KEYS.html, htmlInput.value);
+    }
+
+    function countTags(html) {
+      return (html.match(/<[^>]+>/g) || []).length;
+    }
+
+    function updateStats() {
+      const html = htmlInput.value || '';
+      document.getElementById('statLines').textContent = html ? html.split('\n').length : 0;
+      document.getElementById('statTags').textContent = countTags(html);
+      document.getElementById('statSize').textContent = `${(new Blob([html]).size / 1024).toFixed(2)} KB`;
+    }
+
+    function wrapFragment(fragment, title) {
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    html, body { margin:0; padding:0; background:#ffffff; }
+    body { font-family:Inter, Arial, Helvetica, sans-serif; }
+  </style>
+</head>
+<body>
+<div id="studioEditableRoot">${fragment || '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;color:#94a3b8;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;">Awaiting HTML source</div>'}</div>
+</body>
+</html>`;
+    }
+
+    function wrapEmailShell(fragment, title) {
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style type="text/css">
+    body, table, td, p, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+    table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; border-collapse:collapse !important; }
+    img { border:0; height:auto; line-height:100%; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
+    body { margin:0 !important; padding:0 !important; width:100% !important; background-color:#f8fafc; font-family:Inter,Arial,Helvetica,sans-serif; }
+    @media screen and (max-width: 600px) {
+      .container-600 { width:100% !important; max-width:100% !important; }
+      .mobile-pad { padding-left:16px !important; padding-right:16px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background:#f8fafc;">
+  <div style="display:none; white-space:nowrap; font:15px courier; color:#ffffff; line-height:0; width:600px !important; min-width:600px !important; max-width:600px !important;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+  <!--[if (gte mso 9)|(IE)]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"><tr><td><![endif]-->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%; background:#f8fafc;">
+    <tr>
+      <td align="center" class="mobile-pad" style="padding:20px 10px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" class="container-600" style="width:600px; max-width:600px; background:#ffffff;">
+          <tr>
+            <td id="studioEditableRoot">${fragment || '<div style="padding:32px; color:#94a3b8; font-weight:800; text-transform:uppercase; letter-spacing:0.18em;">Awaiting HTML source</div>'}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <!--[if (gte mso 9)|(IE)]></td></tr></table><![endif]-->
+</body>
+</html>`;
+    }
+
+    function resolvePreviewDocument() {
+      const html = htmlInput.value.trim();
+      const mode = wrapMode.value;
+      const title = (subjectInput.value || 'HTML Preview').replace(/[<>&"]/g, '');
+      const looksLikeFullDocument = /<html[\s>]|<!doctype/i.test(html) || (/<head[\s>]/i.test(html) && /<body[\s>]/i.test(html));
+
+      if (mode === 'document') return html || wrapFragment('', title);
+      if (mode === 'fragment') return wrapFragment(html, title);
+      if (mode === 'email-safe') return wrapEmailShell(html, title);
+      return looksLikeFullDocument ? html : wrapFragment(html, title);
+    }
+
+    function currentSourceIsFullDocument() {
+      const html = htmlInput.value.trim();
+      if (!html) return false;
+      if (wrapMode.value === 'document') return true;
+      if (wrapMode.value === 'fragment' || wrapMode.value === 'email-safe') return false;
+      return /<html[\s>]|<!doctype/i.test(html) || (/<head[\s>]/i.test(html) && /<body[\s>]/i.test(html));
+    }
+
+    function serializePreviewBackToSource() {
+      const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      if (!doc) return '';
+      const editableRoot = doc.getElementById('studioEditableRoot');
+      if (editableRoot) return editableRoot.innerHTML.trim();
+      if (!doc.documentElement) return '';
+      return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+    }
+
+    function schedulePreviewSync() {
+      if (!previewEditMode || isApplyingSourceUpdate) return;
+      if (previewSyncTimeout) window.clearTimeout(previewSyncTimeout);
+      previewSyncTimeout = window.setTimeout(() => {
+        const nextHtml = serializePreviewBackToSource();
+        if (nextHtml === htmlInput.value) return;
+        isApplyingSourceUpdate = true;
+        htmlInput.value = nextHtml;
+        saveState();
+        updateStats();
+        isApplyingSourceUpdate = false;
+        setStatus('Preview edits synced back into HTML source.');
+      }, 140);
+    }
+
+    function bindPreviewEditing() {
+      const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      if (!doc || !doc.body) return;
+
+      const existingMarker = doc.getElementById('studioPreviewEditStyles');
+      if (!existingMarker) {
+        const style = doc.createElement('style');
+        style.id = 'studioPreviewEditStyles';
+        style.textContent = `
+          [data-studio-editable="true"] { min-height: 100%; }
+          [data-studio-editable="true"]:focus { outline: 3px dashed rgba(200, 168, 78, 0.55); outline-offset: 6px; }
+        `;
+        (doc.head || doc.body).appendChild(style);
+      }
+
+      const editableRoot = doc.getElementById('studioEditableRoot') || doc.body;
+      editableRoot.setAttribute('data-studio-editable', 'true');
+      editableRoot.contentEditable = previewEditMode ? 'true' : 'false';
+      editableRoot.spellcheck = false;
+      doc.body.setAttribute('data-preview-editing', previewEditMode ? 'true' : 'false');
+      doc.body.style.cursor = previewEditMode ? 'text' : 'default';
+
+      if (previewEditMode) {
+        editableRoot.addEventListener('input', schedulePreviewSync);
+        editableRoot.addEventListener('keyup', schedulePreviewSync);
+        editableRoot.addEventListener('paste', schedulePreviewSync);
+        editableRoot.addEventListener('blur', schedulePreviewSync);
+      }
+    }
+
+    function togglePreviewEditMode() {
+      previewEditMode = !previewEditMode;
+      editPreviewBtn.classList.toggle('editing', previewEditMode);
+      editPreviewBtn.textContent = previewEditMode ? 'Stop Editing' : 'Edit Preview';
+      bindPreviewEditing();
+
+      const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      const editableRoot = doc && (doc.getElementById('studioEditableRoot') || doc.body);
+      if (previewEditMode && editableRoot) {
+        editableRoot.focus();
+        setStatus('Preview editing is on. Type directly in the preview and the source will update.');
+        return;
+      }
+
+      schedulePreviewSync();
+      setStatus('Preview editing is off. Source remains the single editable record.');
+    }
+
+    function updatePreview() {
+      const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      const resolved = resolvePreviewDocument();
+      isApplyingSourceUpdate = true;
+      doc.open();
+      doc.write(resolved);
+      doc.close();
+      isApplyingSourceUpdate = false;
+      bindPreviewEditing();
+      saveState();
+      updateStats();
+      setStatus(previewEditMode
+        ? 'Preview updated. Edit mode is on, so changes in the preview will sync back to source.'
+        : 'Preview updated. Ready to inspect, print, or download.');
+    }
+
+    function copySource() {
+      navigator.clipboard.writeText(htmlInput.value || '').then(() => {
+        setStatus('HTML source copied to clipboard.');
+      }).catch(() => {
+        setStatus('Could not copy source. Please copy manually.');
+      });
+    }
+
+    function downloadHtml() {
+      const html = resolvePreviewDocument();
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(subjectInput.value || 'html_preview').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatus('HTML file downloaded.');
+    }
+
+    function extractBodyContent(html) {
+      const match = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      return match && match[1] ? match[1] : html;
+    }
+
+    function extractHeadStyles(html) {
+      const styleBlocks = html.match(/<style\b[^>]*>[\s\S]*?<\/style>/gi) || [];
+      const msoBlocks = html.match(/<!--\[if[\s\S]*?<!\[endif\]-->/gi) || [];
+      return [...msoBlocks, ...styleBlocks].join('\n');
+    }
+
+    function extractClipboardHtml(html) {
+      const headStyles = extractHeadStyles(html);
+      const bodyContent = extractBodyContent(html);
+      return `${headStyles}${headStyles ? '\n' : ''}${bodyContent}`.trim();
+    }
+
+    async function syncToGmail() {
+      const html = resolvePreviewDocument();
+      const clipboardHtml = extractClipboardHtml(html);
+
+      try {
+        const blob = new Blob([clipboardHtml], { type: 'text/html' });
+        const item = new ClipboardItem({ 'text/html': blob });
+        await navigator.clipboard.write([item]);
+      } catch (error) {
+        try {
+          await navigator.clipboard.writeText(clipboardHtml);
+        } catch (fallbackError) {
+          setStatus('Could not copy styled HTML to clipboard. Please copy manually.');
+          return;
+        }
+      }
+
+      const params = new URLSearchParams();
+      params.set('view', 'cm');
+      params.set('fs', '1');
+      if (recipientInput.value.trim()) params.set('to', recipientInput.value.trim());
+      if (subjectInput.value.trim()) params.set('su', subjectInput.value.trim());
+
+      const win = window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank', 'noopener,noreferrer');
+      if (!win) {
+        setStatus('Styled HTML copied, but Gmail popup was blocked.');
+        return;
+      }
+
+      setStatus('Styled HTML copied. Paste directly into the Gmail compose window.');
+    }
+
+    function openPreviewTab() {
+      const win = window.open('', '_blank', 'noopener,noreferrer');
+      if (!win) {
+        setStatus('Popup blocked. Please allow popups for this page.');
+        return;
+      }
+      win.document.open();
+      win.document.write(resolvePreviewDocument());
+      win.document.close();
+      setStatus('Preview opened in a new tab.');
+    }
+
+    function printPreview() {
+      const win = window.open('', '_blank', 'noopener,noreferrer');
+      if (!win) {
+        setStatus('Popup blocked. Please allow popups for this page.');
+        return;
+      }
+      win.document.open();
+      win.document.write(resolvePreviewDocument());
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 300);
+      setStatus('Print dialog opened from preview window.');
+    }
+
+    function formatHtml() {
+      const html = htmlInput.value;
+      if (!html.trim()) {
+        setStatus('Nothing to format yet.');
+        return;
+      }
+
+      const formatted = html
+        .replace(/>\s+</g, '>\n<')
+        .replace(/(<(div|section|table|tr|td|tbody|thead|body|head|html|main|header|footer|article|style|script)[^>]*>)/gi, '\n$1')
+        .replace(/(<\/(div|section|table|tr|td|tbody|thead|body|head|html|main|header|footer|article|style|script)>)/gi, '$1\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      htmlInput.value = formatted;
+      updatePreview();
+      setStatus('Source formatted for easier review.');
+    }
+
+    function clearStudio() {
+      htmlInput.value = '';
+      subjectInput.value = 'HTML Preview';
+      wrapMode.value = 'auto';
+      recipientInput.value = '';
+      updatePreview();
+      setStatus('Studio cleared.');
+    }
+
+    function setDeviceMode(mode) {
+      previewWrap.className = `preview-frame-wrap ${mode}`;
+      deviceButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.device === mode));
+      localStorage.setItem(STORAGE_KEYS.device, mode);
+      document.getElementById('statMode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+    }
+
+    document.querySelectorAll('.template-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const template = btn.dataset.template;
+        htmlInput.value = TEMPLATES[template] || SAMPLE_HTML;
+        subjectInput.value = btn.querySelector('strong')?.textContent || 'HTML Preview';
+        updatePreview();
+        setStatus(`${subjectInput.value} loaded into the studio.`);
+      });
+    });
+
+    deviceButtons.forEach((btn) => {
+      btn.addEventListener('click', () => setDeviceMode(btn.dataset.device));
+    });
+
+    document.getElementById('gmailBtn').addEventListener('click', syncToGmail);
+    document.getElementById('copyBtn').addEventListener('click', copySource);
+    document.getElementById('downloadBtn').addEventListener('click', downloadHtml);
+    document.getElementById('printBtn').addEventListener('click', printPreview);
+    document.getElementById('newTabBtn').addEventListener('click', openPreviewTab);
+    document.getElementById('formatBtn').addEventListener('click', formatHtml);
+    document.getElementById('clearBtn').addEventListener('click', clearStudio);
+    document.getElementById('sampleBtn').addEventListener('click', () => {
+      htmlInput.value = SAMPLE_HTML;
+      subjectInput.value = 'Sample HTML Preview';
+      updatePreview();
+      setStatus('Sample HTML loaded.');
+    });
+    document.getElementById('toggleWrapBtn').addEventListener('click', () => {
+      const order = ['auto', 'fragment', 'document', 'email-safe'];
+      const nextMode = order[(order.indexOf(wrapMode.value) + 1) % order.length];
+      wrapMode.value = nextMode;
+      updatePreview();
+      setStatus(`Wrap mode changed to ${nextMode}.`);
+    });
+    editPreviewBtn.addEventListener('click', togglePreviewEditMode);
+    document.getElementById('loadFileBtn').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        htmlInput.value = String(reader.result || '');
+        subjectInput.value = file.name.replace(/\.(html?|txt)$/i, '');
+        updatePreview();
+        setStatus(`${file.name} imported into HTML Studio.`);
+      };
+      reader.readAsText(file);
+    });
+
+    htmlInput.addEventListener('input', () => {
+      if (isApplyingSourceUpdate) return;
+      updatePreview();
+    });
+    subjectInput.addEventListener('input', updatePreview);
+    recipientInput.addEventListener('input', updatePreview);
+    wrapMode.addEventListener('change', updatePreview);
+
+    loadStoredState();
+    updatePreview();
+  </script>
+</body>
+</html>
