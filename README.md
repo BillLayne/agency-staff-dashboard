@@ -2,6 +2,8 @@
 
 ## November 4, 2026: Command Center parity
 
+Production release: commit `1a7aaf6`, Cloudflare Pages deployment `e2dd0c47`, live asset `index-D2Tk69V2.js`. Verified the separate staff sign-in, shared contacts (20 entries, revision 10 unchanged), both quote workspaces and live Lee property lookup, AI memo response, 320/390/1440 layouts, and staff document deletion/Gmail-draft restrictions. Tested old staff memo recovery with synthetic data. The image-host endpoint presented a Cloudflare challenge to both agent and staff automated checks, so image-library access remains unverified; the image-host access code is still required. No customer records or messages were changed.
+
 The staff dashboard uses the current Agency Command Center design and search/tools workspaces, including Home Quote Info, Auto Quote Info and VIN lookup. It preserves the staff login, shared contacts database and its original contact storage keys, tab-scoped memo drafts including legacy recovery, staff-only launcher tools, and staff document-link restrictions. Staff do not receive Bill's Mail Gateway or the document-link delete and Gold Elite Gmail-draft permissions. The image workspace requires its own existing image-host access code. New quote drafts remain in the current browser tab or an explicitly downloaded file.
 
 `APP_ID=agency-staff-dashboard` must remain set: it controls the staff session and server-side document capabilities. Do not deploy with the agent dashboard's configuration. AI requests use the server-side staff secret; no API key belongs in the frontend. Property research sends only the requested address to Find My Home. Source parity was based on the live agent release at `C:/Users/bill/cmp-home-quick`, not its unrelated undeployed main branch.
