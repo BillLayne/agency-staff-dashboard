@@ -1,5 +1,9 @@
 # Agency Staff Dashboard
 
+## November 4, 2026: Auto declarations reader
+
+Auto Quote Info offers **Read declarations**, with camera capture or PDF/JPG/PNG/WebP upload up to 8 MB. The signed, same-origin endpoint sends the selected file to Gemini for transcription and extraction, without saving the original. Staff review the extracted details and add only blank fields; existing answers are preserved, and a different or unidentifiable insured cannot be merged into an existing draft. Renewal source details do not become current-policy limits or expiration, missing history and consent are never filled, and a mailing address is not assumed to be a garaging address. Full VINs and deductible rows are kept only where supported; other details remain for staff review. The importer shares the auto draft's tab-scoped recovery and existing exports. The same files are intended for the agent Command Center.
+
 ## November 4, 2026: Command Center parity
 
 Production release: commit `1a7aaf6`, Cloudflare Pages deployment `e2dd0c47`, live asset `index-D2Tk69V2.js`. Verified the separate staff sign-in, shared contacts (20 entries, revision 10 unchanged), both quote workspaces and live Lee property lookup, AI memo response, 320/390/1440 layouts, and staff document deletion/Gmail-draft restrictions. Tested old staff memo recovery with synthetic data. The image-host endpoint presented a Cloudflare challenge to both agent and staff automated checks, so image-library access remains unverified; the image-host access code is still required. No customer records or messages were changed.

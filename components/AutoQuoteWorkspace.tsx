@@ -8,6 +8,8 @@ import {
 } from '../shared/autoQuote';
 import type { Answers, AutoField, AutoQuoteDraft, VinDecode } from '../shared/autoQuote';
 import { decodeUrl, displayMake, normalizeVin, summarizeVehicle, validateVin } from '../shared/vin';
+import AutoDeclarationImport from './AutoDeclarationImport';
+import { mergeDeclaration } from '../shared/autoDeclaration';
 
 // Separate from the home workspace on purpose: its own storage key, draft shape,
 // interview and exports. Only the visual classes (.quote-*) are shared.
@@ -53,6 +55,7 @@ const AutoQuoteWorkspace: React.FC<{
   const [view, setView] = useState<'interview' | 'report'>('interview');
   const [section, setSection] = useState(0);
   const [notice, setNotice] = useState('');
+  const [declarationOpen, setDeclarationOpen] = useState(false);
   const [pendingName, setPendingName] = useState('');
   const [confirmation, setConfirmation] = useState<'new' | 'clear' | 'import' | null>(null);
   const [imported, setImported] = useState<AutoQuoteDraft | null>(null);
@@ -143,7 +146,7 @@ const AutoQuoteWorkspace: React.FC<{
   const activeSection = AUTO_SECTIONS[section];
   const answersCount = activeSection.kind === 'fields' ? activeSection.fields.filter(field => draft.answers[field.key]?.trim()).length : 0;
   const report = view === 'report' ? buildAutoQuoteReport(draft) : '';
-  const keepClose = () => { setConfirmation(null); onClose(); };
+  const keepClose = () => { setDeclarationOpen(false); setConfirmation(null); onClose(); };
   const exportDraft = () => {
     download(JSON.stringify(draft, null, 2), 'auto-quote-draft.json', 'application/json');
     exportVersion.current = draft.updatedAt;
@@ -214,6 +217,7 @@ const AutoQuoteWorkspace: React.FC<{
         <div className="quote-toolbar">
           <div><p ref={headingRef} tabIndex={-1} className="quote-address">{draft.answers.name || 'New auto quote'}</p><p className="quote-muted">Private interview. Retained in this tab; not backed up to the agency cloud.</p></div>
           <div className="quote-actions">
+            <button type="button" className={buttonClass} onClick={() => setDeclarationOpen(true)} title="Take a photo or read an auto declarations page" aria-label="Read auto declarations">{icon('fa-camera')}Read declarations</button>
             <button className={buttonClass} onClick={exportDraft} disabled={!hasContent}>{icon('fa-download')}Save draft</button>
             <button className={buttonClass} onClick={() => uploadRef.current?.click()}>{icon('fa-folder-open')}Open draft</button>
             <button className={buttonClass} title="Clear quote draft" aria-label="Clear quote draft" onClick={() => setConfirmation('clear')}>{icon('fa-trash-can')}</button>
@@ -250,6 +254,12 @@ const AutoQuoteWorkspace: React.FC<{
         </section>}
       </div>
     </Modal>
+    <AutoDeclarationImport isOpen={isOpen && declarationOpen} onClose={() => setDeclarationOpen(false)} onApply={data => {
+      const merged = mergeDeclaration(draftRef.current, data);
+      setDraft(merged.draft);
+      setNotice(`Declaration details added to empty fields. Review against the document.${merged.skipped ? ` ${merged.skipped} conflicting or unmatchable item(s) were kept or skipped.` : ''}`);
+      setView('interview'); setSection(0);
+    }} />
     <Modal isOpen={isOpen && Boolean(confirmation)} title={confirmation === 'clear' ? 'Clear private quote draft?' : confirmation === 'new' ? 'Start a new quote?' : 'Open a saved quote?'} onClose={() => setConfirmation(null)}>
       <p className="text-sm">This replaces the current draft in this tab. Download it first if you need to keep the answers.</p>
       <div className="quote-actions mt-4"><button className={buttonClass} onClick={exportDraft} disabled={!hasContent}>Save current draft</button><button className={buttonClass} onClick={() => setConfirmation(null)}>Cancel</button><button className={buttonClass + ' quote-primary'} onClick={() => {
